@@ -1,0 +1,15 @@
+# Data files - אל תעלה נתונים אישיים לגיטהאב
+equipment.json
+vitalcheck-data.json
+*-data.json
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp
+.claude/settings.local.json

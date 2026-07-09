@@ -1,0 +1,1572 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VitalCheck — מעקב תקפים ציוד כונן רפואי</title>
+<style>
+  :root {
+    --navy: #0f2244;
+    --navy-light: #1a3660;
+    --teal: #2dd4a0;
+    --teal-dark: #1fa87d;
+    --bg: #f4f7fb;
+    --panel: #ffffff;
+    --ink: #1c2733;
+    --muted: #6b7a8c;
+    --line: #dde5ee;
+    --ok: #fdf6c9;
+    --ok-border: #e8d878;
+    --warn: #fde2c5;
+    --warn-border: #eaa55f;
+    --danger: #fbd6d2;
+    --danger-border: #e08577;
+    --good: #e0f4ec;
+    --good-border: #8fd4b8;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: "Segoe UI", "Arial Hebrew", Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ---------- Header ---------- */
+  header {
+    padding: 22px 32px 18px;
+    background: var(--navy);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    flex-wrap: wrap;
+  }
+
+  .logo-mark {
+    width: 54px;
+    height: 54px;
+    background: var(--navy-light);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .logo-mark svg { width: 40px; height: 40px; }
+
+  .header-text h1 {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+  }
+
+  .header-text h1 .vital { color: #fff; }
+  .header-text h1 .check { color: var(--teal); font-weight: 400; }
+
+  .header-text p {
+    margin: 3px 0 0;
+    color: #9fb3cc;
+    font-size: 13.5px;
+  }
+
+  #customTitle {
+    color: var(--teal);
+    font-weight: 600;
+    cursor: pointer;
+    border-bottom: 1px dashed transparent;
+  }
+  #customTitle:hover { border-bottom-color: var(--teal); }
+
+  .header-credit {
+    margin-right: auto;
+    text-align: left;
+    font-size: 14px;
+    font-weight: 500;
+    color: #ffffff;
+    line-height: 1.7;
+    padding-right: 14px;
+    border-right: 2px solid var(--teal);
+  }
+
+  .header-credit a { color: var(--teal); text-decoration: none; }
+  .header-credit a:hover { text-decoration: underline; }
+
+  /* ---------- Toolbar ---------- */
+  /* Specificity must beat ".toolbar button" (0,1,1) or it wins and shows the toggle on desktop */
+  .toolbar .mobile-only { display: none; }
+
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 20px;
+    align-items: flex-start;
+    padding: 14px 32px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .toolbar-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    position: relative;
+    border: 1px solid #d4dfec;
+    border-radius: 12px;
+    padding: 14px 14px 10px;
+    background: rgba(255, 255, 255, 0.6);
+  }
+
+  .toolbar-group-label {
+    position: absolute;
+    top: -9px;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    background: var(--bg);
+    padding: 0 8px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--navy);
+    letter-spacing: 1px;
+  }
+
+  .toolbar-group-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .toolbar input[type="search"] {
+    width: 220px;
+    max-width: 100%;
+    height: 42px;
+    box-sizing: border-box;
+    padding: 0 14px;
+    border: 1px solid #c8d5e3;
+    border-radius: 10px;
+    font-size: 14px;
+    background: var(--bg);
+    color: var(--ink);
+  }
+
+  .toolbar select {
+    height: 42px;
+    box-sizing: border-box;
+    padding: 0 14px;
+    border: 1px solid #c8d5e3;
+    border-radius: 10px;
+    font-size: 14px;
+    background: var(--bg);
+    color: var(--ink);
+  }
+
+  .toolbar button {
+    height: 42px;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .toolbar button:not(.primary) {
+    background: var(--panel);
+    border: 1px solid #c8d5e3;
+    color: var(--navy);
+  }
+
+  select {
+    padding: 10px 14px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    font-size: 14px;
+    background: var(--bg);
+    color: var(--ink);
+  }
+
+  button {
+    padding: 10px 18px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--panel);
+    color: var(--ink);
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  button:hover { border-color: var(--teal); color: var(--teal-dark); }
+
+  button.primary {
+    background: var(--teal);
+    color: var(--navy);
+    border-color: var(--teal);
+    font-weight: 700;
+  }
+
+  button.primary:hover { background: var(--teal-dark); color: #fff; }
+
+  button.navy {
+    background: var(--navy);
+    color: #fff;
+    border-color: var(--navy);
+    font-weight: 600;
+  }
+
+  button.navy:hover { background: var(--navy-light); color: #fff; }
+
+  /* ---------- Legend ---------- */
+  .legend {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    padding: 10px 32px;
+    font-size: 12.5px;
+    color: var(--muted);
+    flex-wrap: wrap;
+  }
+
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+
+  .swatch {
+    width: 13px; height: 13px;
+    border-radius: 4px;
+    display: inline-block;
+  }
+
+  .swatch.swatch-good { background: var(--good-border); }
+  .swatch.swatch-ok { background: var(--ok-border); }
+  .swatch.swatch-warn { background: var(--warn-border); }
+  .swatch.swatch-danger { background: var(--danger-border); }
+  .swatch.swatch-none { background: #fff; border: 1.5px solid #999; }
+
+  main { padding: 18px 32px 40px; flex: 1; }
+
+  #appContent { max-width: 900px; margin: 0 auto; }
+
+  .file-status {
+    font-size: 13px;
+    color: var(--muted);
+    padding: 10px 32px 0;
+    text-align: center;
+  }
+
+  .file-status.connected { color: var(--teal-dark); }
+  .file-status.error { color: #c0392b; }
+
+  /* ---------- Welcome screen ---------- */
+  #welcomeScreen {
+    max-width: 560px;
+    margin: 40px auto;
+    background: var(--panel);
+    border-radius: 20px;
+    padding: 44px 40px;
+    text-align: center;
+    box-shadow: 0 4px 24px rgba(15, 34, 68, 0.08);
+  }
+
+  #welcomeScreen .welcome-logo {
+    width: 90px; height: 90px;
+    background: var(--navy);
+    border-radius: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+  }
+
+  #welcomeScreen .welcome-logo svg { width: 64px; height: 64px; }
+
+  #welcomeScreen h2 {
+    margin: 0 0 6px;
+    font-size: 26px;
+    color: var(--navy);
+  }
+
+  #welcomeScreen h2 .check { color: var(--teal-dark); font-weight: 400; }
+
+  #welcomeScreen .subtitle {
+    color: var(--muted);
+    font-size: 15px;
+    margin-bottom: 28px;
+  }
+
+  #welcomeScreen .welcome-desc {
+    text-align: right;
+    background: var(--bg);
+    border-radius: 14px;
+    padding: 18px 22px;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--ink);
+    margin-bottom: 28px;
+  }
+
+  #welcomeScreen .welcome-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  #welcomeScreen .welcome-buttons button {
+    padding: 16px;
+    font-size: 16px;
+    border-radius: 12px;
+  }
+
+  #welcomeScreen .browser-note {
+    margin-top: 20px;
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+
+  #restoreBtn { display: none; }
+
+  /* ---------- Table ---------- */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--panel);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(15, 34, 68, 0.06);
+  }
+
+  thead th {
+    text-align: right;
+    padding: 13px 16px;
+    background: var(--navy);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+  }
+
+  thead th:hover { background: var(--navy-light); }
+
+  thead th .arrow { font-size: 11px; opacity: 0.7; margin-right: 4px; color: var(--teal); }
+
+  tbody td {
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--line);
+    font-size: 14px;
+    vertical-align: middle;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+
+  tbody tr.row-good { background: var(--good); }
+  tbody tr.row-ok { background: var(--ok); }
+  tbody tr.row-warn { background: var(--warn); }
+  tbody tr.row-danger { background: var(--danger); }
+  tbody tr.row-none { background: #fff; }
+
+  .cat-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    border: 1px solid var(--line);
+    background: rgba(255,255,255,0.6);
+    color: var(--ink);
+  }
+
+  .expiry-cell { display: flex; align-items: center; gap: 8px; }
+
+  .status-pill {
+    font-size: 11px;
+    padding: 2px 9px;
+    border-radius: 10px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .pill-good { background: var(--good-border); color: #1d4a38; }
+  .pill-ok { background: var(--ok-border); color: #5c4f0a; }
+  .pill-warn { background: var(--warn-border); color: #5c3514; }
+  .pill-danger { background: var(--danger-border); color: #5a1a12; }
+  .pill-none { background: #ddd; color: #555; }
+
+  .actions-cell { display: flex; gap: 6px; white-space: nowrap; }
+  .actions-cell button { padding: 6px 10px; font-size: 12px; border-radius: 8px; }
+  .danger-btn { color: #c0392b; border-color: var(--danger-border); }
+  .danger-btn:hover { background: var(--danger); color: #8c2318; }
+
+  /* ---------- Desktop table alignment ---------- */
+  @media (min-width: 721px) {
+    #dataTable thead th:not(:first-child),
+    #dataTable tbody td:not(:first-child) {
+      text-align: center;
+    }
+    #dataTable .expiry-cell { justify-content: center; }
+    #dataTable .actions-cell { justify-content: center; }
+  }
+
+  footer.summary {
+    margin-top: 16px;
+    padding: 14px 18px;
+    background: var(--panel);
+    border-radius: 14px;
+    font-size: 13px;
+    color: var(--muted);
+    display: flex;
+    justify-content: center;
+    gap: 22px;
+    flex-wrap: wrap;
+  }
+
+  #summaryTop {
+    margin-top: 0;
+    margin-bottom: 16px;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+    background: var(--panel);
+    border-radius: 14px;
+  }
+
+  /* ---------- Credit footer ---------- */
+  .credit {
+    text-align: center;
+    padding: 20px 32px;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.7;
+    color: #ffffff;
+    border-top: 2px solid var(--teal);
+    background: var(--navy);
+  }
+
+  .credit strong { font-weight: 700; }
+  .credit a { color: var(--teal); text-decoration: none; }
+  .credit a:hover { text-decoration: underline; color: #6be0b8; }
+
+  /* ---------- Modal ---------- */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 34, 68, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+
+  .modal {
+    background: var(--panel);
+    border-radius: 16px;
+    padding: 26px;
+    width: 370px;
+    max-width: 90vw;
+  }
+
+  .modal h2 { margin: 0 0 16px; font-size: 18px; color: var(--navy); }
+
+  .modal label {
+    display: block;
+    font-size: 13px;
+    color: var(--muted);
+    margin: 12px 0 4px;
+  }
+
+  .modal input, .modal select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    font-size: 14px;
+  }
+
+  .modal .modal-actions {
+    margin-top: 22px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+
+  /* ---------- Print ---------- */
+  @media print {
+    header, .toolbar, .legend, .file-status, .credit, .actions-cell, button, #summaryTop { display: none !important; }
+    body { background: #fff; }
+    main { padding: 0; }
+    table { box-shadow: none; }
+    thead th { background: #eee !important; color: #000 !important; -webkit-print-color-adjust: exact; }
+    tbody tr { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .print-header { display: block !important; text-align: center; margin-bottom: 16px; }
+  }
+
+  .print-header { display: none; }
+
+  /* ---------- Mobile ---------- */
+  @media (max-width: 720px) {
+    header, .toolbar, .legend, main, .file-status { padding-left: 14px; padding-right: 14px; }
+
+    /* Touch-friendly baseline for every control, more specific rules below refine it */
+    button, input, select { min-height: 44px; }
+    input, select { font-size: 16px; }
+
+    /* Header stacks instead of spreading across the width, centered */
+    header { flex-direction: column; align-items: center; text-align: center; gap: 10px; }
+    .logo-mark { margin: 0 auto; }
+    .header-text { text-align: center; width: 100%; }
+    .header-credit {
+      margin-right: 0;
+      text-align: center;
+      border-right: none;
+      padding-right: 0;
+      border-top: 2px solid var(--teal);
+      padding-top: 12px;
+      margin-top: 8px;
+      width: 100%;
+    }
+
+    /* Toolbar: full-width stacked group cards, smaller padding */
+    .toolbar {
+      padding: 12px;
+      position: static; /* cancel the sticky behavior that traps the toolbar mid-scroll */
+      flex-direction: column;
+    }
+    .toolbar-group { width: 100%; }
+    .toolbar-group-controls { width: 100%; }
+    .toolbar-group-controls > * { flex: 1; }
+    .toolbar input[type="search"] { width: 100%; }
+    .toolbar input[type="search"], .toolbar select, .toolbar button { height: 44px; }
+
+    /* Toolbar collapses behind the hamburger toggle by default */
+    /* Same ".toolbar .mobile-only" specificity as the desktop rule above, so this
+       later declaration wins once the media query matches */
+    .toolbar .mobile-only {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      background: var(--navy);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-weight: 600;
+    }
+    .toolbar.collapsed .toolbar-group { display: none; }
+
+    .legend {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 12px;
+      padding: 12px 16px;
+      font-size: 13px;
+      background: rgba(255, 255, 255, 0.5);
+      border-radius: 10px;
+      margin: 10px 14px;
+    }
+    .legend span {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+    .swatch { width: 15px; height: 15px; }
+
+    #fileStatus { margin-bottom: 10px; }
+
+    /* Table -> card list */
+    thead { display: none; }
+    table, tbody, tr, td { display: block; width: 100%; }
+    tbody tr { margin-bottom: 12px; border-radius: 12px; border: 1px solid var(--line); }
+    tbody td {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+    tbody td::before {
+      content: attr(data-label);
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    tbody td[data-label="שם הפריט"] {
+      display: block;
+      font-size: 16px;
+      font-weight: 700;
+    }
+    tbody td[data-label="שם הפריט"]::before { content: none; }
+
+    tbody td[data-label="פעולות"] {
+      display: block;
+      border-bottom: none;
+      border-top: 1px solid rgba(0, 0, 0, 0.08);
+      padding-top: 10px;
+    }
+    tbody td[data-label="פעולות"]::before { content: none; }
+    tbody td[data-label="פעולות"] .actions-cell { width: 100%; gap: 8px; }
+    tbody td[data-label="פעולות"] .actions-cell button {
+      flex: 1;
+      min-height: 40px;
+      font-size: 14px;
+    }
+
+    /* Modal */
+    .modal { width: calc(100vw - 20px); max-height: 90vh; overflow-y: auto; }
+
+    /* Summary footer: same flowing row style as desktop, just wrapping */
+    footer.summary {
+      display: flex;
+      flex-direction: row;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 6px 14px;
+      padding: 14px 16px;
+      font-size: 13px;
+      background: var(--panel);
+      border-radius: 12px;
+      text-align: center;
+    }
+    footer.summary span {
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* Force a line break after the first two items (total / shown), so the
+       status breakdown flows on its own line(s). The forced-break pseudo-element
+       must belong to the flex container itself to become a real flex item —
+       attaching it to a child's ::after would only affect that child's own box. */
+    footer.summary::after {
+      content: "";
+      order: 1;
+      flex-basis: 100%;
+      height: 0;
+    }
+    footer.summary span:nth-child(n + 3) {
+      order: 2;
+    }
+
+    #summaryTop { margin-bottom: 14px; }
+
+    /* Credit footer */
+    .credit { padding: 16px; font-size: 13px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-mark">
+    <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+      <polyline fill="none" stroke="#2dd4a0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+        points="3,22 10,22 13,22 16,10 20,32 24,16 27,22 31,22 37,22"/>
+      <circle fill="none" stroke="#2dd4a0" stroke-width="2" cx="31" cy="10" r="5"/>
+      <polyline fill="none" stroke="#2dd4a0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"
+        points="28.5,10 30.5,12.5 34,7.5"/>
+    </svg>
+  </div>
+  <div class="header-text">
+    <h1><span class="vital">Vital</span><span class="check">Check</span></h1>
+    <p>מעקב תקפים ציוד כונן רפואי · <span id="customTitle" title="לחץ לעריכה">התיק שלי</span></p>
+  </div>
+  <div class="header-credit">
+    פותח על ידי <strong>ד"ר אורי דביר</strong><br>
+    <a href="mailto:Dr.OriDevir@gmail.com">Dr.OriDevir@gmail.com</a>
+  </div>
+</header>
+
+<div class="toolbar" id="mainToolbar" style="display:none;">
+  <button id="mobileToolbarToggle" class="mobile-only" aria-label="הצג/הסתר סרגל כלים">☰ פעולות</button>
+  <div class="toolbar-group">
+    <div class="toolbar-group-label">פריטים</div>
+    <div class="toolbar-group-controls">
+      <input type="search" id="searchInput" placeholder="חיפוש לפי שם פריט..." />
+      <button class="primary" id="addItemBtn">+ הוספת פריט</button>
+    </div>
+  </div>
+  <div class="toolbar-group">
+    <div class="toolbar-group-label">קטגוריות</div>
+    <div class="toolbar-group-controls">
+      <select id="categoryFilter">
+        <option value="">כל הקטגוריות</option>
+      </select>
+      <button id="manageCatsBtn">🏷️ ניהול קטגוריות</button>
+    </div>
+  </div>
+  <div class="toolbar-group">
+    <div class="toolbar-group-label">סטטוסים</div>
+    <div class="toolbar-group-controls">
+      <select id="statusFilter">
+        <option value="">כל הסטטוסים</option>
+        <option value="danger">אדום — פג / קרוב מאוד</option>
+        <option value="warn">כתום — 1-2 חודשים</option>
+        <option value="ok">צהוב — מתחת ל-3 חודשים</option>
+        <option value="good">ירוק — תקף</option>
+        <option value="none">בלי תוקף</option>
+      </select>
+    </div>
+  </div>
+  <div class="toolbar-group">
+    <div class="toolbar-group-label">קובץ</div>
+    <div class="toolbar-group-controls">
+      <button id="printBtn">🖨️ הדפסה / PDF</button>
+      <button id="switchFileBtn">📂 החלפת קובץ</button>
+      <button id="startOverBtn" title="חזרה למסך הפתיחה">🔄 התחל מהתחלה</button>
+    </div>
+  </div>
+</div>
+
+<div class="file-status" id="fileStatus" style="display:none;"></div>
+
+<div class="legend" id="mainLegend" style="display:none;">
+  <span><span class="swatch swatch-good"></span> תקף</span>
+  <span><span class="swatch swatch-ok"></span> מתחת ל-3 חודשים</span>
+  <span><span class="swatch swatch-warn"></span> 1-2 חודשים</span>
+  <span><span class="swatch swatch-danger"></span> פג / קרוב מאוד</span>
+  <span><span class="swatch swatch-none"></span> ללא תוקף</span>
+</div>
+
+<main>
+  <!-- Welcome screen -->
+  <div id="welcomeScreen">
+    <div class="welcome-logo">
+      <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+        <polyline fill="none" stroke="#2dd4a0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+          points="3,22 10,22 13,22 16,10 20,32 24,16 27,22 31,22 37,22"/>
+        <circle fill="none" stroke="#2dd4a0" stroke-width="2" cx="31" cy="10" r="5"/>
+        <polyline fill="none" stroke="#2dd4a0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"
+          points="28.5,10 30.5,12.5 34,7.5"/>
+      </svg>
+    </div>
+    <h2>Vital<span class="check">Check</span></h2>
+    <div class="subtitle">מעקב תקפים ציוד כונן רפואי</div>
+
+    <div class="welcome-desc">
+      <strong>ברוכים הבאים!</strong><br>
+      VitalCheck עוזרת לך לעקוב אחרי תאריכי תוקף של הציוד הרפואי בתיק שלך:
+      תרופות, עירויים, ציוד החייאה ועוד.<br><br>
+      🟢 ירוק — תקף &nbsp;·&nbsp; 🟡 צהוב — מתקרב &nbsp;·&nbsp; 🔴 אדום — פג תוקף<br><br>
+      הנתונים נשמרים בקובץ מקומי במחשב שלך (מומלץ בתיקיית Dropbox / Google Drive לגיבוי אוטומטי). שינויים נשמרים אוטומטית.
+    </div>
+
+    <div class="welcome-buttons">
+      <button class="primary" id="createNewBtn">✨ התחלה חדשה — צור קובץ נתונים</button>
+      <button class="navy" id="openExistingBtn">📂 יש לי כבר קובץ — פתח אותו</button>
+      <button id="restoreBtn">♻️ שחזור מגיבוי אחרון</button>
+    </div>
+
+    <div class="browser-note" id="reopenNotice" style="display:none;"></div>
+    <div class="browser-note">⚠️ האפליקציה עובדת בדפדפן כרום או אדג' בלבד (במחשב)</div>
+  </div>
+
+  <!-- Main table -->
+  <div id="appContent" style="display:none;">
+    <footer class="summary" id="summaryTop"></footer>
+    <div class="print-header">
+      <h2 id="printTitle">VitalCheck — דוח תקפים</h2>
+      <p id="printDate"></p>
+    </div>
+    <table id="dataTable">
+      <thead>
+        <tr>
+          <th data-key="name">שם הפריט <span class="arrow"></span></th>
+          <th data-key="category">קטגוריה <span class="arrow"></span></th>
+          <th data-key="expiry">תוקף <span class="arrow">▲</span></th>
+          <th>פעולות</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+    <div class="empty-state" id="emptyState" style="display:none;">
+      אין עדיין פריטים — לחץ "+ הוספת פריט" כדי להתחיל
+    </div>
+    <footer class="summary" id="summary"></footer>
+  </div>
+</main>
+
+<div class="credit">
+  פותח על ידי <strong>ד"ר אורי דביר</strong> · להארות והערות:
+  <a href="mailto:Dr.OriDevir@gmail.com">Dr.OriDevir@gmail.com</a>
+</div>
+
+<!-- Item modal -->
+<div class="modal-overlay" id="modalOverlay" style="display:none;">
+  <div class="modal">
+    <h2 id="modalTitle">הוספת פריט</h2>
+    <label>שם הפריט</label>
+    <input type="text" id="modalName" />
+    <label>קטגוריה</label>
+    <select id="modalCategory"></select>
+    <input type="text" id="modalNewCategory" placeholder="שם הקטגוריה החדשה" style="display:none; margin-top:8px;" />
+    <label>תוקף (חודש/שנה) — השאר ריק אם אין תוקף</label>
+    <input type="month" id="modalExpiry" />
+    <div class="modal-actions">
+      <button id="modalCancel">ביטול</button>
+      <button class="primary" id="modalSave">שמירה</button>
+    </div>
+  </div>
+</div>
+
+<!-- Title edit modal -->
+<div class="modal-overlay" id="titleModalOverlay" style="display:none;">
+  <div class="modal">
+    <h2>כותרת אישית</h2>
+    <label>לדוגמה: "תיק כונן — יוסי כהן" או "אמבולנס 42"</label>
+    <input type="text" id="titleInput" maxlength="60" />
+    <div class="modal-actions">
+      <button id="titleCancel">ביטול</button>
+      <button class="primary" id="titleSave">שמירה</button>
+    </div>
+  </div>
+</div>
+
+<!-- Category manager modal -->
+<div class="modal-overlay" id="catsModalOverlay" style="display:none;">
+  <div class="modal">
+    <h2>ניהול קטגוריות</h2>
+    <div id="catsList" style="max-height: 260px; overflow-y: auto;"></div>
+    <label>הוספת קטגוריה חדשה</label>
+    <div style="display: flex; gap: 8px;">
+      <input type="text" id="newCatInput" placeholder="שם הקטגוריה" style="flex: 1;" />
+      <button class="primary" id="addCatBtn" style="white-space: nowrap;">הוסף</button>
+    </div>
+    <div class="modal-actions">
+      <button id="catsClose">סגירה</button>
+    </div>
+  </div>
+</div>
+
+<!-- Rename category modal -->
+<div class="modal-overlay" id="renameCatModalOverlay" style="display:none;">
+  <div class="modal">
+    <h2>שינוי שם קטגוריה</h2>
+    <label id="renameCatLabel"></label>
+    <input type="text" id="renameCatInput" maxlength="40" />
+    <div class="modal-actions">
+      <button id="renameCatCancel">ביטול</button>
+      <button class="primary" id="renameCatSave">שמירה</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let items = [];
+let categories = ['כללי'];
+let customTitleText = 'התיק שלי';
+let fileHandle = null;
+let sortKey = 'expiry';
+let sortAsc = true;
+let editingId = null;
+
+const tableBody = document.getElementById('tableBody');
+const emptyState = document.getElementById('emptyState');
+const fileStatus = document.getElementById('fileStatus');
+const searchInput = document.getElementById('searchInput');
+const categoryFilter = document.getElementById('categoryFilter');
+const statusFilter = document.getElementById('statusFilter');
+const summary = document.getElementById('summary');
+const welcomeScreen = document.getElementById('welcomeScreen');
+const appContent = document.getElementById('appContent');
+const mainToolbar = document.getElementById('mainToolbar');
+const mainLegend = document.getElementById('mainLegend');
+const customTitleEl = document.getElementById('customTitle');
+
+document.getElementById('mobileToolbarToggle').onclick = () => {
+  mainToolbar.classList.toggle('collapsed');
+};
+
+function monthsUntil(expiry) {
+  if (!expiry) return null;
+  const [y, m] = expiry.split('-').map(Number);
+  const now = new Date();
+  return (y - now.getFullYear()) * 12 + (m - (now.getMonth() + 1));
+}
+
+function getStatus(expiry) {
+  if (!expiry) return 'none';
+  const diff = monthsUntil(expiry);
+  if (diff < 1) return 'danger';
+  if (diff < 2) return 'warn';
+  if (diff < 3) return 'ok';
+  return 'good';
+}
+
+function statusLabel(status, expiry) {
+  if (status === 'none') return 'ללא תוקף';
+  const diff = monthsUntil(expiry);
+  if (diff < 0) return `פג לפני ${Math.abs(diff)} חודשים`;
+  if (diff === 0) return 'פג החודש';
+  return `נותרו ${diff} חודשים`;
+}
+
+function formatExpiry(expiry) {
+  if (!expiry) return '—';
+  const [y, m] = expiry.split('-');
+  const months = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+  return `${months[parseInt(m,10)-1]} ${y}`;
+}
+
+function rowClass(s) { return { good:'row-good', ok:'row-ok', warn:'row-warn', danger:'row-danger', none:'row-none' }[s]; }
+function pillClass(s) { return { good:'pill-good', ok:'pill-ok', warn:'pill-warn', danger:'pill-danger', none:'pill-none' }[s]; }
+
+function refreshCategoryFilter() {
+  const sorted = [...categories].sort((a,b) => a.localeCompare(b, 'he'));
+  const current = categoryFilter.value;
+  categoryFilter.innerHTML = '<option value="">כל הקטגוריות</option>';
+  sorted.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c;
+    opt.textContent = c;
+    categoryFilter.appendChild(opt);
+  });
+  categoryFilter.value = current;
+}
+
+function refreshModalCategorySelect(selected) {
+  const sorted = [...categories].sort((a,b) => a.localeCompare(b, 'he'));
+  modalCategory.innerHTML = '';
+  sorted.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c;
+    opt.textContent = c;
+    modalCategory.appendChild(opt);
+  });
+  const newOpt = document.createElement('option');
+  newOpt.value = '__new__';
+  newOpt.textContent = '+ קטגוריה חדשה...';
+  modalCategory.appendChild(newOpt);
+  modalCategory.value = selected && categories.includes(selected) ? selected : sorted[0];
+  modalNewCategory.style.display = 'none';
+  modalNewCategory.value = '';
+}
+
+function render() {
+  const q = searchInput.value.trim().toLowerCase();
+  const catF = categoryFilter.value;
+  const statF = statusFilter.value;
+
+  let filtered = items.filter(item => {
+    if (q && !item.name.toLowerCase().includes(q)) return false;
+    if (catF && item.category !== catF) return false;
+    if (statF && getStatus(item.expiry) !== statF) return false;
+    return true;
+  });
+
+  filtered.sort((a, b) => {
+    let va, vb;
+    if (sortKey === 'expiry') {
+      va = a.expiry || '9999-99';
+      vb = b.expiry || '9999-99';
+    } else {
+      va = (a[sortKey] || '');
+      vb = (b[sortKey] || '');
+      if (va === vb) { va = a.name; vb = b.name; }
+    }
+    if (va < vb) return sortAsc ? -1 : 1;
+    if (va > vb) return sortAsc ? 1 : -1;
+    return 0;
+  });
+
+  tableBody.innerHTML = '';
+  emptyState.style.display = filtered.length === 0 ? 'block' : 'none';
+
+  filtered.forEach(item => {
+    const status = getStatus(item.expiry);
+    const tr = document.createElement('tr');
+    tr.className = rowClass(status);
+
+    const tdName = document.createElement('td');
+    tdName.setAttribute('data-label', 'שם הפריט');
+    tdName.textContent = item.name;
+
+    const tdCat = document.createElement('td');
+    tdCat.setAttribute('data-label', 'קטגוריה');
+    const catBadge = document.createElement('span');
+    catBadge.className = 'cat-badge';
+    catBadge.textContent = item.category;
+    tdCat.appendChild(catBadge);
+
+    const tdExp = document.createElement('td');
+    tdExp.setAttribute('data-label', 'תוקף');
+    tdExp.innerHTML = `<div class="expiry-cell">
+        <span>${formatExpiry(item.expiry)}</span>
+        <span class="status-pill ${pillClass(status)}">${statusLabel(status, item.expiry)}</span>
+      </div>`;
+
+    const tdActions = document.createElement('td');
+    tdActions.setAttribute('data-label', 'פעולות');
+    tdActions.innerHTML = `<div class="actions-cell">
+        <button class="edit-btn">ערוך</button>
+        <button class="danger-btn delete-btn">מחק</button>
+      </div>`;
+    tdActions.querySelector('.edit-btn').onclick = () => openModal(item.id);
+    tdActions.querySelector('.delete-btn').onclick = () => deleteItem(item.id);
+
+    tr.append(tdName, tdCat, tdExp, tdActions);
+    tableBody.appendChild(tr);
+  });
+
+  renderSummary(filtered);
+  refreshCategoryFilter();
+}
+
+function renderSummary(filtered) {
+  const counts = { good: 0, ok: 0, warn: 0, danger: 0, none: 0 };
+  items.forEach(i => counts[getStatus(i.expiry)]++);
+  const html = `
+    <span>סה"כ פריטים: <strong>${items.length}</strong></span>
+    <span>מוצגים: <strong>${filtered.length}</strong></span>
+    <span style="color:#5a1a12;">🔴 פג / קרוב: <strong>${counts.danger}</strong></span>
+    <span style="color:#5c3514;">🟠 1-2 חודשים: <strong>${counts.warn}</strong></span>
+    <span style="color:#5c4f0a;">🟡 מתחת ל-3: <strong>${counts.ok}</strong></span>
+    <span style="color:#1d4a38;">🟢 תקף: <strong>${counts.good}</strong></span>
+    <span>⚪ ללא תוקף: <strong>${counts.none}</strong></span>
+  `;
+  summary.innerHTML = html;
+  const summaryTopEl = document.getElementById('summaryTop');
+  if (summaryTopEl) summaryTopEl.innerHTML = html;
+}
+
+document.querySelectorAll('thead th[data-key]').forEach(th => {
+  th.addEventListener('click', () => {
+    const key = th.dataset.key;
+    if (sortKey === key) sortAsc = !sortAsc;
+    else { sortKey = key; sortAsc = true; }
+    document.querySelectorAll('thead th .arrow').forEach(a => a.textContent = '');
+    th.querySelector('.arrow').textContent = sortAsc ? '▲' : '▼';
+    render();
+  });
+});
+
+searchInput.addEventListener('input', render);
+categoryFilter.addEventListener('change', render);
+statusFilter.addEventListener('change', render);
+
+/* ---------- Item modal ---------- */
+const modalOverlay = document.getElementById('modalOverlay');
+const modalTitle = document.getElementById('modalTitle');
+const modalName = document.getElementById('modalName');
+const modalCategory = document.getElementById('modalCategory');
+const modalNewCategory = document.getElementById('modalNewCategory');
+const modalExpiry = document.getElementById('modalExpiry');
+
+modalCategory.addEventListener('change', () => {
+  if (modalCategory.value === '__new__') {
+    modalNewCategory.style.display = 'block';
+    modalNewCategory.focus();
+  } else {
+    modalNewCategory.style.display = 'none';
+  }
+});
+
+function openModal(id) {
+  editingId = id;
+  if (id) {
+    const item = items.find(i => i.id === id);
+    modalTitle.textContent = 'עריכת פריט';
+    modalName.value = item.name;
+    refreshModalCategorySelect(item.category);
+    modalExpiry.value = item.expiry || '';
+  } else {
+    modalTitle.textContent = 'הוספת פריט';
+    modalName.value = '';
+    refreshModalCategorySelect(null);
+    modalExpiry.value = '';
+  }
+  modalOverlay.style.display = 'flex';
+  modalName.focus();
+}
+
+function closeModal() {
+  modalOverlay.style.display = 'none';
+  editingId = null;
+}
+
+document.getElementById('addItemBtn').onclick = () => openModal(null);
+document.getElementById('modalCancel').onclick = closeModal;
+modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) closeModal(); });
+
+document.getElementById('modalSave').onclick = () => {
+  const name = modalName.value.trim();
+  let category;
+  if (modalCategory.value === '__new__') {
+    category = modalNewCategory.value.trim();
+    if (!category) { alert('יש להזין שם לקטגוריה החדשה'); return; }
+    if (!categories.includes(category)) categories.push(category);
+  } else {
+    category = modalCategory.value;
+  }
+  const expiry = modalExpiry.value || null;
+  if (!name) { alert('יש להזין שם פריט'); return; }
+
+  if (editingId) {
+    const item = items.find(i => i.id === editingId);
+    item.name = name; item.category = category; item.expiry = expiry;
+  } else {
+    const maxNum = items.reduce((max, i) => {
+      const m = (i.id || '').match(/item_(\d+)/);
+      return m ? Math.max(max, parseInt(m[1], 10)) : max;
+    }, 0);
+    items.push({ id: `item_${String(maxNum + 1).padStart(3, '0')}`, name, category, expiry });
+  }
+  closeModal();
+  render();
+  autoSave();
+};
+
+function deleteItem(id) {
+  const item = items.find(i => i.id === id);
+  if (!confirm(`למחוק את "${item.name}"?`)) return;
+  items = items.filter(i => i.id !== id);
+  render();
+  autoSave();
+}
+
+/* ---------- Custom title ---------- */
+const titleModalOverlay = document.getElementById('titleModalOverlay');
+const titleInput = document.getElementById('titleInput');
+
+customTitleEl.addEventListener('click', () => {
+  titleInput.value = customTitleText;
+  titleModalOverlay.style.display = 'flex';
+  titleInput.focus();
+});
+
+document.getElementById('titleCancel').onclick = () => titleModalOverlay.style.display = 'none';
+titleModalOverlay.addEventListener('click', e => { if (e.target === titleModalOverlay) titleModalOverlay.style.display = 'none'; });
+
+document.getElementById('titleSave').onclick = () => {
+  customTitleText = titleInput.value.trim() || 'התיק שלי';
+  customTitleEl.textContent = customTitleText;
+  titleModalOverlay.style.display = 'none';
+  autoSave();
+};
+
+/* ---------- Category manager ---------- */
+const catsModalOverlay = document.getElementById('catsModalOverlay');
+const catsList = document.getElementById('catsList');
+const newCatInput = document.getElementById('newCatInput');
+
+function renderCatsList() {
+  const sorted = [...categories].sort((a,b) => a.localeCompare(b, 'he'));
+  catsList.innerHTML = '';
+  sorted.forEach(cat => {
+    const count = items.filter(i => i.category === cat).length;
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex; align-items:center; gap:8px; padding:8px 4px; border-bottom:1px solid var(--line);';
+
+    const label = document.createElement('span');
+    label.style.flex = '1';
+    label.append(document.createTextNode(cat + ' '));
+    const countSpan = document.createElement('span');
+    countSpan.style.cssText = 'color:var(--muted); font-size:12px;';
+    countSpan.textContent = `(${count} פריטים)`;
+    label.appendChild(countSpan);
+
+    const renameBtn = document.createElement('button');
+    renameBtn.className = 'cat-rename';
+    renameBtn.style.cssText = 'padding:5px 10px; font-size:12px;';
+    renameBtn.textContent = '✏️ שנה שם';
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'cat-delete danger-btn';
+    deleteBtn.style.cssText = 'padding:5px 10px; font-size:12px;';
+    deleteBtn.textContent = '🗑️ מחק';
+
+    row.append(label, renameBtn, deleteBtn);
+
+    renameBtn.onclick = () => openRenameCatModal(cat);
+    deleteBtn.onclick = () => {
+      if (count > 0) {
+        if (!confirm(`בקטגוריה "${cat}" יש ${count} פריטים.\nהפריטים יועברו לקטגוריה "כללי".\nלהמשיך?`)) return;
+        if (!categories.includes('כללי')) categories.unshift('כללי');
+        items.forEach(i => { if (i.category === cat) i.category = 'כללי'; });
+      } else {
+        if (!confirm(`למחוק את הקטגוריה "${cat}"?`)) return;
+      }
+      categories = categories.filter(c => c !== cat);
+      if (categories.length === 0) categories = ['כללי'];
+      renderCatsList();
+      render();
+      autoSave();
+    };
+    catsList.appendChild(row);
+  });
+}
+
+document.getElementById('manageCatsBtn').onclick = () => {
+  renderCatsList();
+  newCatInput.value = '';
+  catsModalOverlay.style.display = 'flex';
+};
+
+document.getElementById('addCatBtn').onclick = () => {
+  const name = newCatInput.value.trim();
+  if (!name) return;
+  if (categories.includes(name)) { alert('קטגוריה בשם זה כבר קיימת'); return; }
+  categories.push(name);
+  newCatInput.value = '';
+  renderCatsList();
+  render();
+  autoSave();
+};
+
+newCatInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('addCatBtn').click();
+});
+
+document.getElementById('catsClose').onclick = () => catsModalOverlay.style.display = 'none';
+catsModalOverlay.addEventListener('click', e => { if (e.target === catsModalOverlay) catsModalOverlay.style.display = 'none'; });
+
+/* ---------- Rename category modal ---------- */
+const renameCatModalOverlay = document.getElementById('renameCatModalOverlay');
+const renameCatLabel = document.getElementById('renameCatLabel');
+const renameCatInput = document.getElementById('renameCatInput');
+let renameCatTarget = null;
+
+function openRenameCatModal(cat) {
+  renameCatTarget = cat;
+  renameCatLabel.textContent = `שם חדש לקטגוריה "${cat}":`;
+  renameCatInput.value = cat;
+  renameCatModalOverlay.style.display = 'flex';
+  renameCatInput.focus();
+}
+
+function closeRenameCatModal() {
+  renameCatModalOverlay.style.display = 'none';
+  renameCatTarget = null;
+}
+
+document.getElementById('renameCatCancel').onclick = closeRenameCatModal;
+renameCatModalOverlay.addEventListener('click', e => { if (e.target === renameCatModalOverlay) closeRenameCatModal(); });
+
+document.getElementById('renameCatSave').onclick = () => {
+  const cat = renameCatTarget;
+  if (!cat) return;
+  const trimmed = renameCatInput.value.trim();
+  if (!trimmed || trimmed === cat) { closeRenameCatModal(); return; }
+  if (categories.includes(trimmed)) { alert('קטגוריה בשם זה כבר קיימת'); return; }
+  categories = categories.map(c => c === cat ? trimmed : c);
+  items.forEach(i => { if (i.category === cat) i.category = trimmed; });
+  closeRenameCatModal();
+  renderCatsList();
+  render();
+  autoSave();
+};
+
+renameCatInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('renameCatSave').click();
+});
+
+/* ---------- Start over ---------- */
+document.getElementById('startOverBtn').onclick = async () => {
+  if (!confirm('לחזור למסך הפתיחה?\n\nהנתונים שלך שמורים בקובץ — שום דבר לא יימחק.\nתוכל לפתוח את הקובץ שוב בכל רגע.')) return;
+  try {
+    const db = await openDB();
+    db.transaction('handles', 'readwrite').objectStore('handles').delete('dataFile');
+  } catch(e) {}
+  location.reload();
+};
+
+/* ---------- Print ---------- */
+document.getElementById('printBtn').onclick = () => {
+  document.getElementById('printTitle').textContent = `VitalCheck — ${customTitleText}`;
+  document.getElementById('printDate').textContent = 'נכון לתאריך: ' + new Date().toLocaleDateString('he-IL');
+  window.print();
+};
+
+/* ---------- File handling ---------- */
+const hasFS = !!window.showOpenFilePicker;
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('vitalcheckDB', 1);
+    req.onupgradeneeded = e => e.target.result.createObjectStore('handles');
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function saveHandleToDB(handle) {
+  try {
+    const db = await openDB();
+    db.transaction('handles', 'readwrite').objectStore('handles').put(handle, 'dataFile');
+  } catch(e) {}
+}
+
+async function getHandleFromDB() {
+  try {
+    const db = await openDB();
+    return new Promise(resolve => {
+      const req = db.transaction('handles', 'readonly').objectStore('handles').get('dataFile');
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => resolve(null);
+    });
+  } catch(e) { return null; }
+}
+
+function serializeData() {
+  return JSON.stringify({ title: customTitleText, categories, items }, null, 2);
+}
+
+function syncCategoriesFromItems() {
+  items.forEach(i => {
+    if (i.category && !categories.includes(i.category)) categories.push(i.category);
+  });
+  if (!categories.includes('כללי')) categories.unshift('כללי');
+}
+
+function parseData(text) {
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch (e) {
+    throw new Error('הקובץ אינו JSON תקין');
+  }
+
+  let rawItems, rawCategories, rawTitle;
+  if (Array.isArray(parsed)) {
+    // Old format: the file itself is just an array of items.
+    rawItems = parsed;
+    rawCategories = ['כללי'];
+    rawTitle = 'התיק שלי';
+  } else if (parsed && typeof parsed === 'object') {
+    // Current format: { title, categories, items }. Any of these may be
+    // missing on older or hand-edited files — fall back quietly instead
+    // of rejecting the whole file.
+    rawItems = parsed.items;
+    rawCategories = parsed.categories;
+    rawTitle = parsed.title;
+  } else {
+    throw new Error('מבנה הקובץ אינו תקין');
+  }
+
+  if (rawItems === undefined || rawItems === null) rawItems = [];
+  if (!Array.isArray(rawItems)) {
+    throw new Error('שדה items אינו מערך');
+  }
+
+  const validItems = rawItems
+    .filter(it => it && typeof it === 'object')
+    .map(it => ({
+      ...it,
+      name: typeof it.name === 'string' && it.name.trim() ? it.name : 'ללא שם',
+      category: typeof it.category === 'string' && it.category.trim() ? it.category : 'כללי'
+    }));
+
+  items = validItems;
+  categories = Array.isArray(rawCategories) ? rawCategories : ['כללי'];
+  customTitleText = typeof rawTitle === 'string' && rawTitle.trim() ? rawTitle : 'התיק שלי';
+  syncCategoriesFromItems();
+  customTitleEl.textContent = customTitleText;
+}
+
+async function writeToFile(handle, json) {
+  const writable = await handle.createWritable();
+  await writable.write(json);
+  await writable.close();
+}
+
+function backupToLocalStorage() {
+  try {
+    localStorage.setItem('vitalcheck_backup', serializeData());
+    localStorage.setItem('vitalcheck_backup_time', new Date().toISOString());
+  } catch(e) {}
+}
+
+async function autoSave() {
+  backupToLocalStorage();
+  if (!fileHandle) return;
+  try {
+    await writeToFile(fileHandle, serializeData());
+    fileStatus.textContent = `✅ נשמר אוטומטית ב-${new Date().toLocaleTimeString('he-IL')}`;
+    fileStatus.className = 'file-status connected';
+  } catch(err) {
+    fileStatus.textContent = `⚠️ שגיאה בשמירה: ${err.message}`;
+    fileStatus.className = 'file-status error';
+  }
+}
+
+function showApp() {
+  welcomeScreen.style.display = 'none';
+  appContent.style.display = 'block';
+  mainToolbar.style.display = 'flex';
+  mainLegend.style.display = 'flex';
+  fileStatus.style.display = 'block';
+  render();
+}
+
+// Returns true on success, false if the file couldn't be accessed (no
+// permission, handle no longer valid, etc — expected during silent
+// startup auto-load). Throws if the file *was* read but its content is
+// invalid, so interactive callers can show the corrupt-file alert
+// instead of failing silently.
+async function loadFromHandle(handle, canPrompt = true) {
+  let file, text;
+  try {
+    let perm = await handle.queryPermission({ mode: 'readwrite' });
+    if (perm === 'prompt' && canPrompt) {
+      perm = await handle.requestPermission({ mode: 'readwrite' });
+    }
+    if (perm !== 'granted') return false;
+    file = await handle.getFile();
+    text = await file.text();
+  } catch (e) {
+    console.error('loadFromHandle: could not access file:', e);
+    return false;
+  }
+
+  parseData(text);
+
+  fileHandle = handle;
+  fileStatus.textContent = `✅ מחובר: ${file.name} — שינויים נשמרים אוטומטית`;
+  fileStatus.className = 'file-status connected';
+  showApp();
+  return true;
+}
+
+/* Create new data file */
+document.getElementById('createNewBtn').onclick = async () => {
+  if (!hasFS) {
+    alert('הדפדפן שלך לא תומך ביצירת קבצים. נא להשתמש בכרום או אדג\' במחשב.');
+    return;
+  }
+  alert(
+    'עכשיו ניצור את קובץ הנתונים שלך 📁\n\n' +
+    'בחלון הבא בחר איפה לשמור את הקובץ.\n\n' +
+    '💡 מומלץ לשמור בתיקיית Dropbox או Google Drive —\n' +
+    'כך הנתונים מגובים אוטומטית בענן.\n\n' +
+    'בקובץ הזה יישמר כל המידע על הציוד והתקפים שלך.\n' +
+    'מרגע היצירה — כל שינוי נשמר אליו אוטומטית.'
+  );
+  try {
+    const handle = await window.showSaveFilePicker({
+      suggestedName: 'vitalcheck-data.json',
+      types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
+    });
+    items = [];
+    categories = ['כללי'];
+    customTitleText = 'התיק שלי';
+    customTitleEl.textContent = customTitleText;
+    await writeToFile(handle, serializeData());
+    fileHandle = handle;
+    await saveHandleToDB(handle);
+    fileStatus.textContent = `✅ נוצר קובץ חדש: ${handle.name} — אפשר להתחיל להוסיף פריטים`;
+    fileStatus.className = 'file-status connected';
+    showApp();
+  } catch(err) {
+    if (err.name !== 'AbortError') alert('שגיאה ביצירת הקובץ: ' + err.message);
+  }
+};
+
+/* Open existing file */
+async function openExisting() {
+  try {
+    if (!hasFS) {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      input.onchange = async () => {
+        const file = input.files[0];
+        const text = await file.text();
+        try {
+          parseData(text);
+        } catch (e) {
+          alert('הקובץ שנטען אינו תקין או פגום. אנא בחר קובץ אחר או צור קובץ חדש.');
+          return;
+        }
+        fileHandle = null;
+        fileStatus.textContent = `נטען: ${file.name} — הדפדפן לא תומך בשמירה אוטומטית לקובץ`;
+        fileStatus.className = 'file-status connected';
+        showApp();
+      };
+      input.click();
+      return;
+    }
+    const [handle] = await window.showOpenFilePicker({
+      types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
+    });
+    await saveHandleToDB(handle);
+    try {
+      await loadFromHandle(handle);
+    } catch (e) {
+      alert('הקובץ שנטען אינו תקין או פגום. אנא בחר קובץ אחר או צור קובץ חדש.');
+    }
+  } catch(err) {
+    if (err.name !== 'AbortError') alert('שגיאה בטעינת הקובץ: ' + err.message);
+  }
+}
+
+document.getElementById('openExistingBtn').onclick = openExisting;
+document.getElementById('switchFileBtn').onclick = openExisting;
+
+/* Restore from backup */
+const restoreBtn = document.getElementById('restoreBtn');
+document.getElementById('restoreBtn').onclick = async () => {
+  const backup = localStorage.getItem('vitalcheck_backup');
+  if (!backup) return;
+  try {
+    parseData(backup);
+  } catch (e) {
+    alert('הקובץ שנטען אינו תקין או פגום. אנא בחר קובץ אחר או צור קובץ חדש.');
+    return;
+  }
+  fileStatus.textContent = '♻️ שוחזר מגיבוי מקומי — מומלץ ליצור קובץ חדש כדי לשמור (לחץ "החלפת קובץ")';
+  fileStatus.className = 'file-status connected';
+  showApp();
+};
+
+/* ---------- Startup ---------- */
+(async () => {
+  // Show restore button if backup exists
+  const backupTime = localStorage.getItem('vitalcheck_backup_time');
+  if (backupTime) {
+    const d = new Date(backupTime);
+    restoreBtn.textContent = `♻️ שחזור מגיבוי אחרון (${d.toLocaleDateString('he-IL')} ${d.toLocaleTimeString('he-IL', {hour:'2-digit',minute:'2-digit'})})`;
+    restoreBtn.style.display = 'block';
+  }
+
+  if (!hasFS) return; // stay on welcome screen
+
+  const savedHandle = await getHandleFromDB();
+  if (savedHandle) {
+    let ok = false;
+    try {
+      ok = await loadFromHandle(savedHandle, false);
+    } catch (e) {
+      // corrupt saved file — fall through to reopenNotice below
+    }
+    if (ok) return;
+    const notice = document.getElementById('reopenNotice');
+    if (notice) {
+      notice.textContent = 'נמצא קובץ אחרון מהפעם הקודמת. לחץ "יש לי כבר קובץ" כדי לפתוח אותו.';
+      notice.style.display = 'block';
+    }
+  }
+})();
+
+/* ---------- Escape closes any open modal ---------- */
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal-overlay').forEach(m => {
+      if (m.style.display !== 'none') m.style.display = 'none';
+    });
+  }
+});
+</script>
+</body>
+</html>
