@@ -84,6 +84,7 @@
     border-bottom: 1px dashed transparent;
   }
   #customTitle:hover { border-bottom-color: var(--teal); }
+  .edit-icon { font-size: 11px; opacity: 0.6; }
 
   .header-credit {
     margin-right: auto;
@@ -681,11 +682,11 @@
   </div>
   <div class="header-text">
     <h1><span class="vital">Vital</span><span class="check">Check</span></h1>
-    <p>מעקב תקפים ציוד כונן רפואי · <span id="customTitle" title="לחץ לעריכה">התיק שלי</span></p>
+    <p>מעקב תקפים ציוד כונן רפואי · <span id="customTitle" title="לחץ לעריכה"><span id="customTitleLabel">התיק שלי</span> <span class="edit-icon">✏️</span></span></p>
   </div>
   <div class="header-credit">
     פותח על ידי <strong>ד"ר אורי דביר</strong><br>
-    <a href="mailto:Dr.OriDevir@gmail.com">Dr.OriDevir@gmail.com</a>
+    <a href="mailto:VitalCheck@DrDevir.com">VitalCheck@DrDevir.com</a>
   </div>
 </header>
 
@@ -800,7 +801,7 @@
 
 <div class="credit">
   פותח על ידי <strong>ד"ר אורי דביר</strong> · להארות והערות:
-  <a href="mailto:Dr.OriDevir@gmail.com">Dr.OriDevir@gmail.com</a>
+  <a href="mailto:VitalCheck@DrDevir.com">VitalCheck@DrDevir.com</a>
 </div>
 
 <!-- Item modal -->
@@ -812,8 +813,8 @@
     <label>קטגוריה</label>
     <select id="modalCategory"></select>
     <input type="text" id="modalNewCategory" placeholder="שם הקטגוריה החדשה" style="display:none; margin-top:8px;" />
-    <label>תוקף (חודש/שנה) — השאר ריק אם אין תוקף</label>
-    <input type="month" id="modalExpiry" />
+    <label>תוקף (חודש/שנה) — השאר ריק אם אין תוקף. לדוגמה: 06/25</label>
+    <input type="text" id="modalExpiry" placeholder="MM/YY" inputmode="numeric" maxlength="5" />
     <div class="modal-actions">
       <button id="modalCancel">ביטול</button>
       <button class="primary" id="modalSave">שמירה</button>
@@ -863,6 +864,24 @@
   </div>
 </div>
 
+<!-- New file info modal -->
+<div class="modal-overlay" id="newFileInfoModalOverlay" style="display:none;">
+  <div class="modal">
+    <h2 style="text-align:center;">יצירת קובץ נתונים חדש 📁</h2>
+    <p style="font-size:17px; line-height:1.7; color: var(--muted); margin: 0 0 8px; text-align:center;">
+      בחלון הבא בחר איפה לשמור את הקובץ.<br><br>
+      💡 מומלץ לשמור בתיקיית Dropbox או Google Drive —
+      כך הנתונים מגובים אוטומטית בענן.<br><br>
+      בקובץ הזה יישמר כל המידע על הציוד והתקפים שלך.
+      מרגע היצירה — כל שינוי נשמר אליו אוטומטית.
+    </p>
+    <div class="modal-actions">
+      <button id="newFileInfoCancel">ביטול</button>
+      <button class="primary" id="newFileInfoContinue">המשך — בחר מיקום לשמירה</button>
+    </div>
+  </div>
+</div>
+
 <script>
 let items = [];
 let categories = ['כללי'];
@@ -884,6 +903,7 @@ const appContent = document.getElementById('appContent');
 const mainToolbar = document.getElementById('mainToolbar');
 const mainLegend = document.getElementById('mainLegend');
 const customTitleEl = document.getElementById('customTitle');
+const customTitleLabelEl = document.getElementById('customTitleLabel');
 
 document.getElementById('mobileToolbarToggle').onclick = () => {
   mainToolbar.classList.toggle('collapsed');
@@ -1064,6 +1084,29 @@ const modalCategory = document.getElementById('modalCategory');
 const modalNewCategory = document.getElementById('modalNewCategory');
 const modalExpiry = document.getElementById('modalExpiry');
 
+/* Convert stored "YYYY-MM" to displayed "MM/YY" */
+function expiryToInputValue(expiry) {
+  if (!expiry) return '';
+  const [y, m] = expiry.split('-');
+  return `${m}/${y.slice(2)}`;
+}
+
+/* Parse typed "MM/YY", "MMYY" or "MM/YYYY" into stored "YYYY-MM". Returns null if invalid. */
+function parseExpiryInput(value) {
+  const match = value.trim().match(/^(\d{1,2})\s*\/?\s*(\d{2}|\d{4})$/);
+  if (!match) return null;
+  const mm = match[1].padStart(2, '0');
+  const monthNum = parseInt(mm, 10);
+  if (monthNum < 1 || monthNum > 12) return null;
+  const year = match[2].length === 2 ? `20${match[2]}` : match[2];
+  return `${year}-${mm}`;
+}
+
+modalExpiry.addEventListener('input', () => {
+  const digits = modalExpiry.value.replace(/\D/g, '').slice(0, 4);
+  modalExpiry.value = digits.length > 2 ? `${digits.slice(0, 2)}/${digits.slice(2)}` : digits;
+});
+
 modalCategory.addEventListener('change', () => {
   if (modalCategory.value === '__new__') {
     modalNewCategory.style.display = 'block';
@@ -1080,7 +1123,7 @@ function openModal(id) {
     modalTitle.textContent = 'עריכת פריט';
     modalName.value = item.name;
     refreshModalCategorySelect(item.category);
-    modalExpiry.value = item.expiry || '';
+    modalExpiry.value = expiryToInputValue(item.expiry);
   } else {
     modalTitle.textContent = 'הוספת פריט';
     modalName.value = '';
@@ -1110,7 +1153,12 @@ document.getElementById('modalSave').onclick = () => {
   } else {
     category = modalCategory.value;
   }
-  const expiry = modalExpiry.value || null;
+  const rawExpiry = modalExpiry.value.trim();
+  let expiry = null;
+  if (rawExpiry) {
+    expiry = parseExpiryInput(rawExpiry);
+    if (!expiry) { alert('תוקף לא תקין. נא להזין בפורמט MM/YY, לדוגמה 06/25'); return; }
+  }
   if (!name) { alert('יש להזין שם פריט'); return; }
 
   if (editingId) {
@@ -1151,7 +1199,7 @@ titleModalOverlay.addEventListener('click', e => { if (e.target === titleModalOv
 
 document.getElementById('titleSave').onclick = () => {
   customTitleText = titleInput.value.trim() || 'התיק שלי';
-  customTitleEl.textContent = customTitleText;
+  customTitleLabelEl.textContent = customTitleText;
   titleModalOverlay.style.display = 'none';
   autoSave();
 };
@@ -1372,7 +1420,7 @@ function parseData(text) {
   categories = Array.isArray(rawCategories) ? rawCategories : ['כללי'];
   customTitleText = typeof rawTitle === 'string' && rawTitle.trim() ? rawTitle : 'התיק שלי';
   syncCategoriesFromItems();
-  customTitleEl.textContent = customTitleText;
+  customTitleLabelEl.textContent = customTitleText;
 }
 
 async function writeToFile(handle, json) {
@@ -1440,19 +1488,20 @@ async function loadFromHandle(handle, canPrompt = true) {
 }
 
 /* Create new data file */
-document.getElementById('createNewBtn').onclick = async () => {
+document.getElementById('createNewBtn').onclick = () => {
   if (!hasFS) {
     alert('הדפדפן שלך לא תומך ביצירת קבצים. נא להשתמש בכרום או אדג\' במחשב.');
     return;
   }
-  alert(
-    'עכשיו ניצור את קובץ הנתונים שלך 📁\n\n' +
-    'בחלון הבא בחר איפה לשמור את הקובץ.\n\n' +
-    '💡 מומלץ לשמור בתיקיית Dropbox או Google Drive —\n' +
-    'כך הנתונים מגובים אוטומטית בענן.\n\n' +
-    'בקובץ הזה יישמר כל המידע על הציוד והתקפים שלך.\n' +
-    'מרגע היצירה — כל שינוי נשמר אליו אוטומטית.'
-  );
+  document.getElementById('newFileInfoModalOverlay').style.display = 'flex';
+};
+
+document.getElementById('newFileInfoCancel').onclick = () => {
+  document.getElementById('newFileInfoModalOverlay').style.display = 'none';
+};
+
+document.getElementById('newFileInfoContinue').onclick = async () => {
+  document.getElementById('newFileInfoModalOverlay').style.display = 'none';
   try {
     const handle = await window.showSaveFilePicker({
       suggestedName: 'vitalcheck-data.json',
@@ -1461,7 +1510,7 @@ document.getElementById('createNewBtn').onclick = async () => {
     items = [];
     categories = ['כללי'];
     customTitleText = 'התיק שלי';
-    customTitleEl.textContent = customTitleText;
+    customTitleLabelEl.textContent = customTitleText;
     await writeToFile(handle, serializeData());
     fileHandle = handle;
     await saveHandleToDB(handle);

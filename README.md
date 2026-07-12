@@ -20,4 +20,4 @@
 
 ## פותח על ידי
 
-ד"ר אורי דביר · Dr.OriDevir@gmail.com
+ד"ר אורי דביר · VitalCheck@DrDevir.com
