@@ -785,8 +785,8 @@
       <thead>
         <tr>
           <th data-key="name">שם הפריט <span class="arrow"></span></th>
-          <th data-key="category">קטגוריה <span class="arrow"></span></th>
           <th data-key="expiry">תוקף <span class="arrow">▲</span></th>
+          <th data-key="category">קטגוריה <span class="arrow"></span></th>
           <th>פעולות</th>
         </tr>
       </thead>
@@ -1036,7 +1036,7 @@ function render() {
     tdActions.querySelector('.edit-btn').onclick = () => openModal(item.id);
     tdActions.querySelector('.delete-btn').onclick = () => deleteItem(item.id);
 
-    tr.append(tdName, tdCat, tdExp, tdActions);
+    tr.append(tdName, tdExp, tdCat, tdActions);
     tableBody.appendChild(tr);
   });
 
