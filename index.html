@@ -10,7 +10,7 @@
     --navy-light: #1a3660;
     --teal: #2dd4a0;
     --teal-dark: #1fa87d;
-    --bg: #f4f7fb;
+    --bg: #f0f6f4;
     --panel: #ffffff;
     --ink: #1c2733;
     --muted: #6b7a8c;
@@ -35,7 +35,38 @@
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    position: relative;
   }
+
+  /* ---------- Decorative background blobs ---------- */
+  .bg-blobs {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 100%;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  .blob {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+  }
+
+  /* גיוון בגדלים, מיקומים, צבעים ועוצמות טשטוש */
+  .b1  { top: 5%;   right: -100px; width: 340px; height: 340px; background: #06b6d4; opacity: 0.22; filter: blur(85px); }
+  .b2  { top: 18%;  left: -80px;   width: 260px; height: 260px; background: #10b981; opacity: 0.20; filter: blur(75px); }
+  .b3  { top: 32%;  left: 35%;     width: 380px; height: 380px; background: #14b8a6; opacity: 0.18; filter: blur(100px); }
+  .b4  { top: 45%;  right: 15%;    width: 220px; height: 220px; background: #22c55e; opacity: 0.24; filter: blur(70px); }
+  .b5  { top: 58%;  left: -60px;   width: 300px; height: 300px; background: #0891b2; opacity: 0.20; filter: blur(90px); }
+  .b6  { top: 68%;  right: 25%;    width: 200px; height: 200px; background: #2dd4a0; opacity: 0.22; filter: blur(65px); }
+  .b7  { top: 78%;  left: 20%;     width: 360px; height: 360px; background: #06b6d4; opacity: 0.16; filter: blur(95px); }
+  .b8  { top: 85%;  right: -70px;  width: 280px; height: 280px; background: #10b981; opacity: 0.22; filter: blur(80px); }
+  .b9  { top: 92%;  left: 40%;     width: 240px; height: 240px; background: #14b8a6; opacity: 0.20; filter: blur(70px); }
+  .b10 { top: 97%;  right: 15%;    width: 320px; height: 320px; background: #22c55e; opacity: 0.18; filter: blur(90px); }
 
   /* ---------- Header ---------- */
   header {
@@ -126,7 +157,9 @@
     border: 1px solid #d4dfec;
     border-radius: 12px;
     padding: 14px 14px 10px;
-    background: rgba(255, 255, 255, 0.6);
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
   }
 
   .toolbar-group-label {
@@ -339,7 +372,9 @@
   table {
     width: 100%;
     border-collapse: collapse;
-    background: var(--panel);
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
     border-radius: 14px;
     overflow: hidden;
     box-shadow: 0 2px 12px rgba(15, 34, 68, 0.06);
@@ -420,7 +455,9 @@
   footer.summary {
     margin-top: 16px;
     padding: 14px 18px;
-    background: var(--panel);
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     border-radius: 14px;
     font-size: 13px;
     color: var(--muted);
@@ -505,6 +542,7 @@
   /* ---------- Print ---------- */
   @media print {
     header, .toolbar, .legend, .file-status, .credit, .actions-cell, button, #summaryTop { display: none !important; }
+    .bg-blobs { display: none !important; }
     body { background: #fff; }
     main { padding: 0; }
     table { box-shadow: none; }
@@ -517,6 +555,8 @@
 
   /* ---------- Mobile ---------- */
   @media (max-width: 720px) {
+    .blob { filter: blur(50px); }
+
     header, .toolbar, .legend, main, .file-status { padding-left: 14px; padding-right: 14px; }
 
     /* Touch-friendly baseline for every control, more specific rules below refine it */
@@ -669,6 +709,19 @@
 </style>
 </head>
 <body>
+
+<div class="bg-blobs" aria-hidden="true">
+  <div class="blob b1"></div>
+  <div class="blob b2"></div>
+  <div class="blob b3"></div>
+  <div class="blob b4"></div>
+  <div class="blob b5"></div>
+  <div class="blob b6"></div>
+  <div class="blob b7"></div>
+  <div class="blob b8"></div>
+  <div class="blob b9"></div>
+  <div class="blob b10"></div>
+</div>
 
 <header>
   <div class="logo-mark">
