@@ -161,39 +161,54 @@
     z-index: 10;
   }
 
-  .toolbar-group {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    position: relative;
-    border: 1px solid #d4dfec;
-    border-radius: 12px;
-    padding: 14px 14px 10px;
-    background: rgba(255, 255, 255, 0.75);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-  }
-
-  .toolbar-group-label {
-    position: absolute;
-    top: -9px;
-    left: 50%;
-    right: auto;
-    transform: translateX(-50%);
-    background: var(--bg);
-    padding: 0 8px;
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--navy);
-    letter-spacing: 1px;
-  }
-
-  .toolbar-group-controls {
+  .tb-row {
     display: flex;
     align-items: center;
-    gap: 8px;
+    justify-content: space-between;
     flex-wrap: wrap;
+    gap: 10px 24px;
+    width: 100%;
+    max-width: 1100px;
+    margin: 0 auto;
   }
+  .tb-group { display: flex; align-items: center; gap: 8px; }
+
+  /* Drop-down menus (file actions, status filter) */
+  .tb-menu-wrap { position: relative; }
+  .tb-menu {
+    display: none;
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    min-width: 220px;
+    padding: 6px;
+    background: #fff;
+    border: 1px solid #d4dfec;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(15, 34, 68, 0.15);
+    z-index: 30;
+  }
+  .tb-menu-left { right: auto; left: 0; }
+  .tb-menu.open { display: block; }
+  .toolbar .tb-menu button:not(.primary) {
+    width: 100%;
+    height: 40px;
+    justify-content: flex-start;
+    padding: 0 12px;
+    border: none;
+    border-radius: 8px;
+    background: none;
+    white-space: nowrap;
+  }
+  .toolbar .tb-menu button:not(.primary):hover, .tb-check:hover { background: #eef3f9; }
+  .tb-menu hr { border: none; border-top: 1px solid #e3e9f1; margin: 4px 6px; }
+  .tb-check {
+    display: flex; align-items: center; gap: 8px;
+    height: 40px; padding: 0 12px; border-radius: 8px;
+    cursor: pointer; font-size: 14px; white-space: nowrap; color: var(--ink);
+  }
+  .tb-check input { width: 18px; height: 18px; margin: 0; accent-color: var(--navy); }
+  .toolbar .tb-menu-btn.active { background: var(--navy); border-color: var(--navy); color: #fff; font-weight: 600; }
 
   .toolbar input[type="search"] {
     width: 220px;
@@ -217,15 +232,6 @@
     font-size: 14px;
     background: var(--bg);
     color: var(--ink);
-  }
-
-  .status-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-  .toolbar .status-chips .chip {
-    height: 36px; padding: 0 12px; border-radius: 18px; font-size: 13px;
-    background: var(--panel); border: 1px solid #c8d5e3; color: var(--navy);
-  }
-  .toolbar .status-chips .chip[aria-pressed="true"] {
-    background: var(--navy); border-color: var(--navy); color: #fff; font-weight: 600;
   }
 
   .toolbar button {
@@ -283,29 +289,6 @@
   button.navy:hover { background: var(--navy-light); color: #fff; }
 
   /* ---------- Legend ---------- */
-  .legend {
-    display: flex;
-    justify-content: center;
-    gap: 16px;
-    padding: 10px 32px;
-    font-size: 12.5px;
-    color: var(--muted);
-    flex-wrap: wrap;
-  }
-
-  .legend span { display: inline-flex; align-items: center; gap: 6px; }
-
-  .swatch {
-    width: 13px; height: 13px;
-    border-radius: 4px;
-    display: inline-block;
-  }
-
-  .swatch.swatch-good { background: var(--good-border); }
-  .swatch.swatch-ok { background: var(--ok-border); }
-  .swatch.swatch-warn { background: var(--warn-border); }
-  .swatch.swatch-danger { background: var(--danger-border); }
-  .swatch.swatch-none { background: #fff; border: 1.5px solid #999; }
 
   main { padding: 18px 32px 40px; flex: 1; }
 
@@ -626,7 +609,7 @@
   @media screen and (max-width: 720px) {
     .blob { filter: blur(50px); }
 
-    header, .toolbar, .legend, main, .file-status { padding-left: 14px; padding-right: 14px; }
+    header, .toolbar, main, .file-status { padding-left: 14px; padding-right: 14px; }
 
     /* Touch-friendly baseline for every control, more specific rules below refine it */
     button, input, select { min-height: 44px; }
@@ -651,10 +634,16 @@
       position: static; /* cancel the sticky behavior that traps the toolbar mid-scroll */
       flex-direction: column;
     }
-    .toolbar-group { width: 100%; }
-    .toolbar-group-controls { width: 100%; }
-    .toolbar-group-controls > * { flex: 1; }
-    .toolbar input[type="search"] { width: 100%; }
+    .tb-row { flex-direction: column; align-items: stretch; }
+    .tb-group { width: 100%; position: relative; }
+    .tb-menu-wrap { position: static; }   /* menus open full width under their row */
+    .tb-right { flex-wrap: wrap; }
+    .tb-right .tb-menu-wrap { flex: 1 1 100%; }
+    .tb-right input[type="search"] { flex: 1 1 0; min-width: 0; width: auto; }
+    .tb-right .primary { flex: 0 0 auto; white-space: nowrap; padding: 0 16px; }
+    .tb-left > * { flex: 1 1 0; min-width: 0; }
+    .tb-menu-btn { width: 100%; white-space: nowrap; }
+    .tb-menu, .tb-menu-left { left: 0; right: 0; min-width: 0; }
     .toolbar input[type="search"], .toolbar select, .toolbar button { height: 44px; }
 
     /* Toolbar collapses behind the hamburger toggle by default */
@@ -670,25 +659,8 @@
       border-radius: 10px;
       font-weight: 600;
     }
-    .toolbar.collapsed .toolbar-group { display: none; }
+    .toolbar.collapsed .tb-row { display: none; }
 
-    .legend {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px 12px;
-      padding: 12px 16px;
-      font-size: 13px;
-      background: rgba(255, 255, 255, 0.5);
-      border-radius: 10px;
-      margin: 10px 14px;
-    }
-    .legend span {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      white-space: nowrap;
-    }
-    .swatch { width: 15px; height: 15px; }
 
     #fileStatus { margin-bottom: 10px; }
 
@@ -817,54 +789,44 @@
 
 <div class="toolbar" id="mainToolbar" style="display:none;">
   <button id="mobileToolbarToggle" class="mobile-only" aria-label="הצג/הסתר סרגל כלים">☰ פעולות</button>
-  <div class="toolbar-group">
-    <div class="toolbar-group-label">פריטים</div>
-    <div class="toolbar-group-controls">
-      <input type="search" id="searchInput" placeholder="חיפוש לפי שם פריט..." />
+  <div class="tb-row">
+    <div class="tb-group tb-right">
+      <div class="tb-menu-wrap">
+        <button type="button" class="tb-menu-btn" id="fileMenuBtn" aria-haspopup="true" aria-expanded="false">📁 קובץ ▾</button>
+        <div class="tb-menu" id="fileMenu">
+          <button type="button" id="printBtn">🖨️ הדפסה / PDF</button>
+          <hr>
+          <button type="button" id="saveAsBtn">💾 שמירה כקובץ חדש</button>
+          <button type="button" id="switchFileBtn">📂 פתיחת קובץ אחר</button>
+          <hr>
+          <button type="button" id="startOverBtn">🔄 התחל מהתחלה</button>
+        </div>
+      </div>
+      <input type="search" id="searchInput" placeholder="חיפוש לפי שם פריט..." aria-label="חיפוש לפי שם פריט" />
       <button class="primary" id="addItemBtn">+ הוספת פריט</button>
     </div>
-  </div>
-  <div class="toolbar-group">
-    <div class="toolbar-group-label">קטגוריות</div>
-    <div class="toolbar-group-controls">
-      <select id="categoryFilter">
+    <div class="tb-group tb-left">
+      <select id="categoryFilter" aria-label="סינון לפי קטגוריה">
         <option value="">כל הקטגוריות</option>
       </select>
-      <button id="manageCatsBtn">🏷️ ניהול קטגוריות</button>
-    </div>
-  </div>
-  <div class="toolbar-group">
-    <div class="toolbar-group-label">סטטוסים</div>
-    <div class="toolbar-group-controls">
-      <div id="statusFilter" class="status-chips" title="אפשר לבחור כמה סטטוסים יחד. בלי בחירה — מוצגים כולם">
-        <button type="button" class="chip" data-status="danger" aria-pressed="false">🔴 פג / פג החודש</button>
-        <button type="button" class="chip" data-status="warn" aria-pressed="false">🟠 חודש הבא</button>
-        <button type="button" class="chip" data-status="ok" aria-pressed="false">🟡 בעוד חודשיים</button>
-        <button type="button" class="chip" data-status="good" aria-pressed="false">🟢 תקף</button>
-        <button type="button" class="chip" data-status="none" aria-pressed="false">⚪ ללא תוקף</button>
+      <div class="tb-menu-wrap">
+        <button type="button" class="tb-menu-btn" id="statusMenuBtn" aria-haspopup="true" aria-expanded="false">כל הסטטוסים ▾</button>
+        <div class="tb-menu tb-menu-left" id="statusFilter">
+          <label class="tb-check"><input type="checkbox" data-status="danger"> 🔴 <span>פג תוקף / פג החודש</span></label>
+          <label class="tb-check"><input type="checkbox" data-status="warn"> 🟠 <span>פג בחודש הבא</span></label>
+          <label class="tb-check"><input type="checkbox" data-status="ok"> 🟡 <span>פג בעוד חודשיים</span></label>
+          <label class="tb-check"><input type="checkbox" data-status="good"> 🟢 <span>תקף</span></label>
+          <label class="tb-check"><input type="checkbox" data-status="none"> ⚪ <span>ללא תוקף</span></label>
+          <hr>
+          <button type="button" id="statusClearBtn">הצג את כל הסטטוסים</button>
+        </div>
       </div>
-    </div>
-  </div>
-  <div class="toolbar-group">
-    <div class="toolbar-group-label">קובץ</div>
-    <div class="toolbar-group-controls">
-      <button id="printBtn">🖨️ הדפסה / PDF</button>
-      <button id="saveAsBtn" title="שומר את כל הנתונים שעל המסך לקובץ חדש במחשב">💾 שמירה כקובץ חדש</button>
-      <button id="switchFileBtn" title="סוגר את הנתונים שעל המסך ופותח במקומם קובץ אחר">📂 פתיחת קובץ אחר</button>
-      <button id="startOverBtn" title="חזרה למסך הפתיחה">🔄 התחל מהתחלה</button>
     </div>
   </div>
 </div>
 
 <div class="file-status" id="fileStatus" style="display:none;"></div>
 
-<div class="legend" id="mainLegend" style="display:none;">
-  <span><span class="swatch swatch-good"></span> תקף</span>
-  <span><span class="swatch swatch-ok"></span> פג בעוד חודשיים</span>
-  <span><span class="swatch swatch-warn"></span> פג בחודש הבא</span>
-  <span><span class="swatch swatch-danger"></span> פג תוקף / פג החודש</span>
-  <span><span class="swatch swatch-none"></span> ללא תוקף</span>
-</div>
 
 <main>
   <!-- Welcome screen -->
@@ -1075,7 +1037,6 @@ const summary = document.getElementById('summary');
 const welcomeScreen = document.getElementById('welcomeScreen');
 const appContent = document.getElementById('appContent');
 const mainToolbar = document.getElementById('mainToolbar');
-const mainLegend = document.getElementById('mainLegend');
 const customTitleEl = document.getElementById('customTitle');
 const customTitleLabelEl = document.getElementById('customTitleLabel');
 
@@ -1137,7 +1098,13 @@ function refreshCategoryFilter() {
     opt.textContent = c;
     categoryFilter.appendChild(opt);
   });
+  const manage = document.createElement('option');
+  manage.value = '__manage__';
+  manage.textContent = '⚙️ ניהול קטגוריות...';
+  categoryFilter.appendChild(manage);
   categoryFilter.value = current;
+  if (categoryFilter.value !== current) categoryFilter.value = '';
+  lastCategoryValue = categoryFilter.value;
 }
 
 function refreshModalCategorySelect(selected) {
@@ -1274,15 +1241,75 @@ document.querySelectorAll('thead th[data-key]').forEach(th => {
 });
 
 searchInput.addEventListener('input', render);
-categoryFilter.addEventListener('change', render);
-statusFilter.querySelectorAll('.chip').forEach(chip => {
-  chip.addEventListener('click', () => {
-    const st = chip.dataset.status;
-    if (selectedStatuses.has(st)) selectedStatuses.delete(st); else selectedStatuses.add(st);
-    chip.setAttribute('aria-pressed', selectedStatuses.has(st));
+// The last option of the category list opens the category manager
+let lastCategoryValue = '';
+categoryFilter.addEventListener('change', () => {
+  if (categoryFilter.value === '__manage__') {
+    categoryFilter.value = lastCategoryValue;
+    openCatsManager();
+    return;
+  }
+  lastCategoryValue = categoryFilter.value;
+  render();
+});
+/* ---------- Toolbar drop-down menus ---------- */
+const statusMenuBtn = document.getElementById('statusMenuBtn');
+const STATUS_ICONS = { danger: '🔴', warn: '🟠', ok: '🟡', good: '🟢', none: '⚪' };
+
+function closeMenus(except) {
+  document.querySelectorAll('.tb-menu.open').forEach(m => {
+    if (m === except) return;
+    m.classList.remove('open');
+    const btn = m.parentElement.querySelector('.tb-menu-btn');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+  });
+}
+
+document.querySelectorAll('.tb-menu-wrap').forEach(wrap => {
+  const btn = wrap.querySelector('.tb-menu-btn');
+  const menu = wrap.querySelector('.tb-menu');
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const open = !menu.classList.contains('open');
+    closeMenus(menu);
+    menu.classList.toggle('open', open);
+    btn.setAttribute('aria-expanded', open);
+  });
+  menu.addEventListener('click', e => e.stopPropagation());
+});
+document.addEventListener('click', () => closeMenus());
+// Choosing an action in the file menu closes it
+document.querySelectorAll('#fileMenu button').forEach(b => b.addEventListener('click', () => closeMenus()));
+
+function updateStatusButton() {
+  if (!selectedStatuses.size) {
+    statusMenuBtn.textContent = 'כל הסטטוסים ▾';
+    statusMenuBtn.classList.remove('active');
+    return;
+  }
+  const icons = ['danger', 'warn', 'ok', 'good', 'none'].filter(s => selectedStatuses.has(s)).map(s => STATUS_ICONS[s]).join('');
+  const only = [...selectedStatuses][0];
+  const onlyName = statusFilter.querySelector('input[data-status="' + only + '"]').parentElement.querySelector('span').textContent;
+  statusMenuBtn.textContent = selectedStatuses.size === 1
+    ? `${icons} ${onlyName} ▾`
+    : `${icons} ${selectedStatuses.size} סטטוסים ▾`;
+  statusMenuBtn.classList.add('active');
+}
+
+statusFilter.querySelectorAll('input[data-status]').forEach(cb => {
+  cb.addEventListener('change', () => {
+    if (cb.checked) selectedStatuses.add(cb.dataset.status); else selectedStatuses.delete(cb.dataset.status);
+    updateStatusButton();
     render();
   });
 });
+document.getElementById('statusClearBtn').onclick = () => {
+  selectedStatuses.clear();
+  statusFilter.querySelectorAll('input[data-status]').forEach(cb => { cb.checked = false; });
+  updateStatusButton();
+  closeMenus();
+  render();
+};
 
 /* ---------- Item modal ---------- */
 const modalOverlay = document.getElementById('modalOverlay');
@@ -1497,12 +1524,12 @@ function renderCatsList() {
   });
 }
 
-document.getElementById('manageCatsBtn').onclick = () => {
+function openCatsManager() {
   renderCatsList();
   newCatInput.value = '';
   clearFieldError(newCatInput);
   catsModalOverlay.style.display = 'flex';
-};
+}
 
 document.getElementById('addCatBtn').onclick = () => {
   const name = newCatInput.value.trim();
@@ -1599,9 +1626,9 @@ function buildPrintReport() {
   if (searchInput.value.trim()) filters.push(`חיפוש: "${searchInput.value.trim()}"`);
   if (categoryFilter.value) filters.push(`קטגוריה: ${categoryFilter.value}`);
   if (selectedStatuses.size) {
-    const names = [...statusFilter.querySelectorAll('.chip')]
+    const names = [...statusFilter.querySelectorAll('input[data-status]')]
       .filter(c => selectedStatuses.has(c.dataset.status))
-      .map(c => c.textContent.replace(/^\S+\s/, ''));
+      .map(c => c.parentElement.querySelector('span').textContent);
     filters.push(`סטטוס: ${names.join(' + ')}`);
   }
 
@@ -1924,7 +1951,6 @@ function showApp() {
   welcomeScreen.style.display = 'none';
   appContent.style.display = 'block';
   mainToolbar.style.display = 'flex';
-  mainLegend.style.display = 'flex';
   fileStatus.style.display = 'block';
   render();
 }
@@ -2236,6 +2262,7 @@ function clearFieldErrors(container) {
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     if (dialogResolve) { closeDialog(null); return; }
+    if (document.querySelector('.tb-menu.open')) { closeMenus(); return; }
     document.querySelectorAll('.modal-overlay').forEach(m => {
       if (m.style.display !== 'none') m.style.display = 'none';
     });
