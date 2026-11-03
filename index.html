@@ -1515,7 +1515,7 @@ function buildPrintReport() {
       <td class="num">${num}</td>
       <td>${esc(item.name)}</td>
       <td class="num">${item.quantity == null ? '' : item.quantity}</td>
-      <td class="nowrap">${formatExpiry(item.expiry)}</td>
+      <td class="nowrap">${item.expiry ? expiryToInputValue(item.expiry).replace('/', '.') : '—'}</td>
       <td class="st">${statusLabel(st, item.expiry)}</td>
       <td>${esc(item.category)}</td>
     </tr>`;
