@@ -538,8 +538,18 @@
 
   .modal h2 { margin: 0 0 16px; font-size: 18px; color: var(--navy); }
 
+  /* Never leave a single word alone on the last line */
+  .modal h2, .modal p, .modal label { text-wrap: pretty; }
+
   /* Message-style windows (no form fields): everything centered */
-  .modal--center { text-align: center; }
+  .modal--center { text-align: center; width: 410px; }
+  .modal-actions.stack { flex-direction: column; align-items: stretch; }
+  .modal button.danger-fill { background: #c0392b; color: #fff; border: none; font-weight: 600; }
+  .modal button.danger-fill:hover { background: #a93226; }
+
+  /* Inline validation message under a field */
+  .field-error { color: #b91c1c; font-size: 13px; margin-top: 4px; }
+  .modal input[aria-invalid="true"] { border-color: #b91c1c; }
   .modal--center .modal-actions { justify-content: center !important; }
   .modal--center p { line-height: 1.7; margin: 0; }
 
@@ -992,6 +1002,15 @@
 </div>
 
 <!-- New file info modal -->
+<!-- Generic question / message window (showDialog) -->
+<div class="modal-overlay" id="dialogOverlay" style="display:none;">
+  <div class="modal modal--center" role="dialog" aria-modal="true" aria-labelledby="dialogTitle">
+    <h2 id="dialogTitle"></h2>
+    <p id="dialogBody"></p>
+    <div class="modal-actions" id="dialogActions"></div>
+  </div>
+</div>
+
 <!-- Explains the browser's own file-permission prompt before it appears -->
 <div class="modal-overlay" id="permInfoModalOverlay" style="display:none;">
   <div class="modal modal--center">
@@ -1089,8 +1108,7 @@ function statusLabel(status, expiry) {
 function formatExpiry(expiry) {
   if (!expiry) return '—';
   const [y, m] = expiry.split('-');
-  const months = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
-  return `${months[parseInt(m,10)-1]} ${y}`;
+  return `${m}.${y.slice(2)}`;
 }
 
 function rowClass(s) { return { good:'row-good', ok:'row-ok', warn:'row-warn', danger:'row-danger', none:'row-none' }[s]; }
@@ -1300,6 +1318,7 @@ modalCategory.addEventListener('change', () => {
 
 function openModal(id) {
   editingId = id;
+  clearFieldErrors(modalOverlay);
   if (id) {
     const item = items.find(i => i.id === id);
     modalTitle.textContent = 'עריכת פריט';
@@ -1328,25 +1347,37 @@ document.getElementById('modalCancel').onclick = closeModal;
 closeOnBackdrop(modalOverlay, () => { closeModal(); });
 
 document.getElementById('modalSave').onclick = () => {
+  const modalBox = modalOverlay.querySelector('.modal');
+  clearFieldErrors(modalBox);
+  const invalid = [];
+
   const name = modalName.value.trim();
+  if (!name) { setFieldError(modalName, 'יש להזין שם פריט'); invalid.push(modalName); }
+
+  const rawQty = modalQuantity.value.trim();
+  const quantity = rawQty ? parseInt(rawQty, 10) : null;
+  if (quantity !== null && !(quantity > 0)) {
+    setFieldError(modalQuantity, 'כמות חייבת להיות מספר גדול מ-0, או להישאר ריקה');
+    invalid.push(modalQuantity);
+  }
+
   let category;
   if (modalCategory.value === '__new__') {
     category = modalNewCategory.value.trim();
-    if (!category) { alert('יש להזין שם לקטגוריה החדשה'); return; }
-    if (!categories.includes(category)) categories.push(category);
+    if (!category) { setFieldError(modalNewCategory, 'יש להזין שם לקטגוריה החדשה'); invalid.push(modalNewCategory); }
   } else {
     category = modalCategory.value;
   }
+
   const rawExpiry = modalExpiry.value.trim();
   let expiry = null;
   if (rawExpiry) {
     expiry = parseExpiryInput(rawExpiry);
-    if (!expiry) { alert('תוקף לא תקין. נא להזין בפורמט MM/YY, לדוגמה 06/28'); return; }
+    if (!expiry) { setFieldError(modalExpiry, 'תוקף לא תקין. יש להזין חודש/שנה, לדוגמה 06/28'); invalid.push(modalExpiry); }
   }
-  if (!name) { alert('יש להזין שם פריט'); return; }
-  const rawQty = modalQuantity.value.trim();
-  const quantity = rawQty ? parseInt(rawQty, 10) : null;
-  if (quantity !== null && !(quantity > 0)) { alert('כמות חייבת להיות מספר גדול מ-0, או להישאר ריקה'); return; }
+
+  if (invalid.length) { invalid[0].focus(); return; }
+  if (modalCategory.value === '__new__' && !categories.includes(category)) categories.push(category);
 
   if (editingId) {
     const item = items.find(i => i.id === editingId);
@@ -1363,9 +1394,14 @@ document.getElementById('modalSave').onclick = () => {
   autoSave();
 };
 
-function deleteItem(id) {
+async function deleteItem(id) {
   const item = items.find(i => i.id === id);
-  if (!confirm(`למחוק את "${item.name}"?`)) return;
+  const ok = await showDialog({
+    title: '🗑️ מחיקת פריט',
+    html: `למחוק את <strong>"${escapeHtml(item.name)}"</strong>?<br>אי אפשר לבטל את המחיקה.`,
+    buttons: [{ label: 'ביטול', value: false }, { label: 'מחק', value: true, kind: 'danger' }]
+  });
+  if (!ok) return;
   items = items.filter(i => i.id !== id);
   render();
   autoSave();
@@ -1425,13 +1461,18 @@ function renderCatsList() {
     row.append(label, renameBtn, deleteBtn);
 
     renameBtn.onclick = () => openRenameCatModal(cat);
-    deleteBtn.onclick = () => {
+    deleteBtn.onclick = async () => {
+      const ok = await showDialog({
+        title: '🗑️ מחיקת קטגוריה',
+        html: count > 0
+          ? `בקטגוריה <strong>"${escapeHtml(cat)}"</strong> יש ${count} פריטים.<br>הם יועברו לקטגוריה "כללי".`
+          : `למחוק את הקטגוריה <strong>"${escapeHtml(cat)}"</strong>?`,
+        buttons: [{ label: 'ביטול', value: false }, { label: 'מחק קטגוריה', value: true, kind: 'danger' }]
+      });
+      if (!ok) return;
       if (count > 0) {
-        if (!confirm(`בקטגוריה "${cat}" יש ${count} פריטים.\nהפריטים יועברו לקטגוריה "כללי".\nלהמשיך?`)) return;
         if (!categories.includes('כללי')) categories.unshift('כללי');
         items.forEach(i => { if (i.category === cat) i.category = 'כללי'; });
-      } else {
-        if (!confirm(`למחוק את הקטגוריה "${cat}"?`)) return;
       }
       categories = categories.filter(c => c !== cat);
       if (categories.length === 0) categories = ['כללי'];
@@ -1446,13 +1487,19 @@ function renderCatsList() {
 document.getElementById('manageCatsBtn').onclick = () => {
   renderCatsList();
   newCatInput.value = '';
+  clearFieldError(newCatInput);
   catsModalOverlay.style.display = 'flex';
 };
 
 document.getElementById('addCatBtn').onclick = () => {
   const name = newCatInput.value.trim();
   if (!name) return;
-  if (categories.includes(name)) { alert('קטגוריה בשם זה כבר קיימת'); return; }
+  if (categories.includes(name)) {
+    setFieldError(newCatInput, 'קטגוריה בשם זה כבר קיימת', newCatInput.parentElement);
+    newCatInput.focus();
+    return;
+  }
+  clearFieldError(newCatInput);
   categories.push(name);
   newCatInput.value = '';
   renderCatsList();
@@ -1477,6 +1524,7 @@ function openRenameCatModal(cat) {
   renameCatTarget = cat;
   renameCatLabel.textContent = `שם חדש לקטגוריה "${cat}":`;
   renameCatInput.value = cat;
+  clearFieldError(renameCatInput);
   renameCatModalOverlay.style.display = 'flex';
   renameCatInput.focus();
 }
@@ -1494,7 +1542,7 @@ document.getElementById('renameCatSave').onclick = () => {
   if (!cat) return;
   const trimmed = renameCatInput.value.trim();
   if (!trimmed || trimmed === cat) { closeRenameCatModal(); return; }
-  if (categories.includes(trimmed)) { alert('קטגוריה בשם זה כבר קיימת'); return; }
+  if (categories.includes(trimmed)) { setFieldError(renameCatInput, 'קטגוריה בשם זה כבר קיימת'); renameCatInput.focus(); return; }
   categories = categories.map(c => c === cat ? trimmed : c);
   items.forEach(i => { if (i.category === cat) i.category = trimmed; });
   closeRenameCatModal();
@@ -1510,8 +1558,15 @@ renameCatInput.addEventListener('keydown', e => {
 /* ---------- Start over ---------- */
 document.getElementById('startOverBtn').onclick = async () => {
   if (hasUnsavedData()) {
-    if (!confirmDiscardUnsaved('לחזור למסך הפתיחה')) return;
-  } else if (!confirm('לחזור למסך הפתיחה?\n\nהנתונים שלך שמורים בקובץ — שום דבר לא יימחק.\nתוכל לפתוח את הקובץ שוב בכל רגע.')) return;
+    if (!(await confirmDiscardUnsaved())) return;
+  } else {
+    const ok = await showDialog({
+      title: '🔄 חזרה למסך הפתיחה',
+      html: 'הנתונים שלך שמורים בקובץ — שום דבר לא יימחק.<br>תוכל לפתוח את הקובץ שוב בכל רגע.',
+      buttons: [{ label: 'ביטול', value: false }, { label: 'חזרה למסך הפתיחה', value: true, kind: 'primary' }]
+    });
+    if (!ok) return;
+  }
   allowUnload = true;
   try {
     const db = await openDB();
@@ -1563,7 +1618,7 @@ function buildPrintReport() {
       <td class="num">${num}</td>
       <td>${esc(item.name)}</td>
       <td class="num">${item.quantity == null ? '' : item.quantity}</td>
-      <td class="nowrap">${item.expiry ? expiryToInputValue(item.expiry).replace('/', '.') : '—'}</td>
+      <td class="nowrap">${formatExpiry(item.expiry)}</td>
       <td class="st">${statusLabel(st, item.expiry)}</td>
       <td>${esc(item.category)}</td>
     </tr>`;
@@ -1771,13 +1826,22 @@ function hasUnsavedData() {
   return !fileHandle && items.length > 0 && appContent.style.display !== 'none';
 }
 
-function confirmDiscardUnsaved(action) {
-  return confirm(
-    `⚠️ שים לב: הנתונים שעל המסך (${items.length} פריטים) עדיין לא שמורים בשום קובץ!\n\n` +
-    `אם תמשיך ל${action}, הם יימחקו מהמסך.\n\n` +
-    `כדי לשמור אותם קודם: לחץ "ביטול", ואז "💾 שמירה כקובץ חדש".\n\n` +
-    `להמשיך בכל זאת ולאבד את הנתונים?`
-  );
+// Resolves true only when the user chose to continue and discard.
+// "Save first" saves and then stops: the browser allows only one file
+// window per click, so the user clicks the original button again.
+async function confirmDiscardUnsaved() {
+  const choice = await showDialog({
+    title: '⚠️ הנתונים לא שמורים!',
+    html: `${items.length} הפריטים שעל המסך עדיין לא שמורים בשום קובץ.<br>אם תמשיך, הם יימחקו מהמסך.`,
+    stack: true,
+    buttons: [
+      { label: hasFS ? '💾 שמור קודם כקובץ חדש' : '💾 הורד קודם קובץ גיבוי', value: 'save', kind: 'primary' },
+      { label: 'המשך ומחק', value: 'discard', kind: 'danger' },
+      { label: 'ביטול', value: null }
+    ]
+  });
+  if (choice === 'save') { await saveAsNewFile(); return false; }
+  return choice === 'discard';
 }
 
 function showUnsavedStatus(prefix) {
@@ -1821,7 +1885,7 @@ async function saveAsNewFile() {
     await saveHandleToDB(handle);
     showConnectedStatus(handle.name, 'נשמר ומחובר לקובץ');
   } catch (err) {
-    if (err.name !== 'AbortError') alert('שגיאה בשמירת הקובץ: ' + err.message);
+    if (err.name !== 'AbortError') showMessage('שגיאה בשמירה', 'שגיאה בשמירת הקובץ: ' + err.message);
   }
 }
 
@@ -1907,7 +1971,7 @@ function showPermissionDenied(handle) {
     try {
       await loadFromHandle(handle);
     } catch (e) {
-      alert('הקובץ שנטען אינו תקין או פגום. אנא בחר קובץ אחר או צור קובץ חדש.');
+      showMessage('הקובץ פגום', 'הקובץ שנטען אינו תקין או פגום. אנא בחר קובץ אחר או צור קובץ חדש.');
     }
   };
 }
@@ -1915,7 +1979,7 @@ function showPermissionDenied(handle) {
 /* Create new data file */
 document.getElementById('createNewBtn').onclick = () => {
   if (!hasFS) {
-    alert('הדפדפן שלך לא תומך ביצירת קבצים. נא להשתמש בכרום או אדג\' במחשב.');
+    showMessage('הדפדפן לא נתמך', 'הדפדפן שלך לא תומך ביצירת קבצים. נא להשתמש בכרום או אדג\' במחשב.');
     return;
   }
   document.getElementById('newFileInfoModalOverlay').style.display = 'flex';
@@ -1942,7 +2006,7 @@ document.getElementById('newFileInfoContinue').onclick = async () => {
     showConnectedStatus(handle.name, 'נוצר קובץ חדש');
     showApp();
   } catch(err) {
-    if (err.name !== 'AbortError') alert('שגיאה ביצירת הקובץ: ' + err.message);
+    if (err.name !== 'AbortError') showMessage('שגיאה ביצירת הקובץ', 'שגיאה ביצירת הקובץ: ' + err.message);
   }
 };
 
@@ -1959,7 +2023,7 @@ async function openExisting() {
         try {
           parseData(text);
         } catch (e) {
-          alert('הקובץ שנטען אינו תקין או פגום. אנא בחר קובץ אחר או צור קובץ חדש.');
+          showMessage('הקובץ פגום', 'הקובץ שנטען אינו תקין או פגום. אנא בחר קובץ אחר או צור קובץ חדש.');
           return;
         }
         fileHandle = null;
@@ -1979,16 +2043,16 @@ async function openExisting() {
     try {
       await loadFromHandle(handle);
     } catch (e) {
-      alert('הקובץ שנטען אינו תקין או פגום. אנא בחר קובץ אחר או צור קובץ חדש.');
+      showMessage('הקובץ פגום', 'הקובץ שנטען אינו תקין או פגום. אנא בחר קובץ אחר או צור קובץ חדש.');
     }
   } catch(err) {
-    if (err.name !== 'AbortError') alert('שגיאה בטעינת הקובץ: ' + err.message);
+    if (err.name !== 'AbortError') showMessage('שגיאה בטעינת הקובץ', 'שגיאה בטעינת הקובץ: ' + err.message);
   }
 }
 
 document.getElementById('openExistingBtn').onclick = openExisting;
-document.getElementById('switchFileBtn').onclick = () => {
-  if (hasUnsavedData() && !confirmDiscardUnsaved('פתוח קובץ אחר')) return;
+document.getElementById('switchFileBtn').onclick = async () => {
+  if (hasUnsavedData() && !(await confirmDiscardUnsaved())) return;
   openExisting();
 };
 document.getElementById('saveAsBtn').onclick = saveAsNewFile;
@@ -2006,7 +2070,7 @@ function restoreBackup(entry) {
   try {
     parseData(entry.data);
   } catch (e) {
-    alert('הגיבוי הזה פגום ולא ניתן לשחזר אותו. נסה גיבוי אחר.');
+    showMessage('הגיבוי פגום', 'הגיבוי הזה פגום ולא ניתן לשחזר אותו. נסה גיבוי אחר.');
     return;
   }
   fileHandle = null;
@@ -2086,9 +2150,79 @@ function closeOnBackdrop(overlay, close) {
   });
 }
 
+/* ---------- In-app question / message windows ---------- */
+const dialogOverlay = document.getElementById('dialogOverlay');
+let dialogResolve = null;
+
+// buttons: [{ label, value, kind: 'primary' | 'danger' | '' }]
+// Resolves with the chosen button's value, or null on Esc / backdrop.
+function showDialog({ title, html, buttons, stack = false }) {
+  if (dialogResolve) closeDialog(null);
+  document.getElementById('dialogTitle').textContent = title;
+  document.getElementById('dialogBody').innerHTML = html;
+  const actions = document.getElementById('dialogActions');
+  actions.innerHTML = '';
+  actions.classList.toggle('stack', stack);
+  buttons.forEach(b => {
+    const btn = document.createElement('button');
+    btn.textContent = b.label;
+    if (b.kind === 'primary') btn.className = 'primary';
+    if (b.kind === 'danger') btn.className = 'danger-fill';
+    btn.onclick = () => closeDialog(b.value);
+    actions.appendChild(btn);
+  });
+  dialogOverlay.style.display = 'flex';
+  const focusBtn = [...actions.children].find(b => !b.classList.contains('danger-fill')) || actions.firstChild;
+  if (focusBtn) focusBtn.focus();
+  return new Promise(resolve => { dialogResolve = resolve; });
+}
+
+function closeDialog(value) {
+  dialogOverlay.style.display = 'none';
+  const res = dialogResolve;
+  dialogResolve = null;
+  if (res) res(value);
+}
+closeOnBackdrop(dialogOverlay, () => closeDialog(null));
+
+function showMessage(title, text) {
+  return showDialog({ title, html: escapeHtml(text), buttons: [{ label: 'אישור', value: true, kind: 'primary' }] });
+}
+
+function escapeHtml(t) {
+  return String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+/* ---------- Inline field errors ---------- */
+// anchor: the element the message goes right after (defaults to the input)
+function setFieldError(input, msg, anchor = input) {
+  clearFieldError(input);
+  const el = document.createElement('div');
+  el.className = 'field-error';
+  el.id = input.id + 'Error';
+  el.setAttribute('role', 'alert');
+  el.textContent = msg;
+  anchor.insertAdjacentElement('afterend', el);
+  input.setAttribute('aria-invalid', 'true');
+  input.setAttribute('aria-describedby', el.id);
+  input.addEventListener('input', () => clearFieldError(input), { once: true });
+}
+
+function clearFieldError(input) {
+  const el = document.getElementById(input.id + 'Error');
+  if (el) el.remove();
+  input.removeAttribute('aria-invalid');
+  input.removeAttribute('aria-describedby');
+}
+
+function clearFieldErrors(container) {
+  container.querySelectorAll('[aria-invalid="true"]').forEach(clearFieldError);
+}
+
 /* ---------- Escape closes any open modal ---------- */
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
+    if (dialogResolve) { closeDialog(null); return; }
     document.querySelectorAll('.modal-overlay').forEach(m => {
       if (m.style.display !== 'none') m.style.display = 'none';
     });
