@@ -1325,7 +1325,7 @@ function closeModal() {
 
 document.getElementById('addItemBtn').onclick = () => openModal(null);
 document.getElementById('modalCancel').onclick = closeModal;
-modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) closeModal(); });
+closeOnBackdrop(modalOverlay, () => { closeModal(); });
 
 document.getElementById('modalSave').onclick = () => {
   const name = modalName.value.trim();
@@ -1382,7 +1382,7 @@ customTitleEl.addEventListener('click', () => {
 });
 
 document.getElementById('titleCancel').onclick = () => titleModalOverlay.style.display = 'none';
-titleModalOverlay.addEventListener('click', e => { if (e.target === titleModalOverlay) titleModalOverlay.style.display = 'none'; });
+closeOnBackdrop(titleModalOverlay, () => { titleModalOverlay.style.display = 'none'; });
 
 document.getElementById('titleSave').onclick = () => {
   customTitleText = titleInput.value.trim() || 'התיק שלי';
@@ -1465,7 +1465,7 @@ newCatInput.addEventListener('keydown', e => {
 });
 
 document.getElementById('catsClose').onclick = () => catsModalOverlay.style.display = 'none';
-catsModalOverlay.addEventListener('click', e => { if (e.target === catsModalOverlay) catsModalOverlay.style.display = 'none'; });
+closeOnBackdrop(catsModalOverlay, () => { catsModalOverlay.style.display = 'none'; });
 
 /* ---------- Rename category modal ---------- */
 const renameCatModalOverlay = document.getElementById('renameCatModalOverlay');
@@ -1487,7 +1487,7 @@ function closeRenameCatModal() {
 }
 
 document.getElementById('renameCatCancel').onclick = closeRenameCatModal;
-renameCatModalOverlay.addEventListener('click', e => { if (e.target === renameCatModalOverlay) closeRenameCatModal(); });
+closeOnBackdrop(renameCatModalOverlay, () => { closeRenameCatModal(); });
 
 document.getElementById('renameCatSave').onclick = () => {
   const cat = renameCatTarget;
@@ -2043,7 +2043,7 @@ restoreBtn.onclick = () => {
   backupsModalOverlay.style.display = 'flex';
 };
 document.getElementById('backupsClose').onclick = () => backupsModalOverlay.style.display = 'none';
-backupsModalOverlay.addEventListener('click', e => { if (e.target === backupsModalOverlay) backupsModalOverlay.style.display = 'none'; });
+closeOnBackdrop(backupsModalOverlay, () => { backupsModalOverlay.style.display = 'none'; });
 
 /* ---------- Startup ---------- */
 (async () => {
@@ -2072,6 +2072,19 @@ backupsModalOverlay.addEventListener('click', e => { if (e.target === backupsMod
     }
   }
 })();
+
+/* Close a window by clicking the dark backdrop around it — but only when
+   the click both started and ended on the backdrop. Otherwise selecting
+   text in a field and releasing the mouse outside the window counts as a
+   backdrop click and closes the window without saving. */
+function closeOnBackdrop(overlay, close) {
+  let downOnBackdrop = false;
+  overlay.addEventListener('mousedown', e => { downOnBackdrop = e.target === overlay; });
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay && downOnBackdrop) close();
+    downOnBackdrop = false;
+  });
+}
 
 /* ---------- Escape closes any open modal ---------- */
 document.addEventListener('keydown', (e) => {
