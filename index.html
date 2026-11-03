@@ -1106,7 +1106,16 @@ function statusLabel(status, expiry) {
   return `נותרו ${diff} חודשים`;
 }
 
+// On screen: full month name ("ינואר 2021")
 function formatExpiry(expiry) {
+  if (!expiry) return '—';
+  const [y, m] = expiry.split('-');
+  const months = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+  return `${months[parseInt(m,10)-1]} ${y}`;
+}
+
+// In the printed report: compact numbers ("01.21")
+function formatExpiryShort(expiry) {
   if (!expiry) return '—';
   const [y, m] = expiry.split('-');
   return `${m}.${y.slice(2)}`;
@@ -1619,7 +1628,7 @@ function buildPrintReport() {
       <td class="num">${num}</td>
       <td>${esc(item.name)}</td>
       <td class="num">${item.quantity == null ? '' : item.quantity}</td>
-      <td class="nowrap">${formatExpiry(item.expiry)}</td>
+      <td class="nowrap">${formatExpiryShort(item.expiry)}</td>
       <td class="st">${statusLabel(st, item.expiry)}</td>
       <td>${esc(item.category)}</td>
     </tr>`;
