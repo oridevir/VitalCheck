@@ -538,6 +538,11 @@
 
   .modal h2 { margin: 0 0 16px; font-size: 18px; color: var(--navy); }
 
+  /* Message-style windows (no form fields): everything centered */
+  .modal--center { text-align: center; }
+  .modal--center .modal-actions { justify-content: center !important; }
+  .modal--center p { line-height: 1.7; margin: 0; }
+
   .modal label {
     display: block;
     font-size: 13px;
@@ -947,8 +952,8 @@
 <!-- Backups modal -->
 <div class="modal-overlay" id="backupsModalOverlay" style="display:none;">
   <div class="modal">
-    <h2>שחזור מגיבוי</h2>
-    <p style="margin:0 0 10px; color:var(--muted); font-size:13px;">
+    <h2 style="text-align:center;">שחזור מגיבוי</h2>
+    <p style="margin:0 0 10px; color:var(--muted); font-size:13px; text-align:center;">
       הגיבויים נשמרים אוטומטית בדפדפן הזה בכל שינוי. בחר את הגיבוי שברצונך לשחזר:
     </p>
     <div id="backupsList" style="max-height: 320px; overflow-y: auto;"></div>
@@ -987,10 +992,33 @@
 </div>
 
 <!-- New file info modal -->
+<!-- Explains the browser's own file-permission prompt before it appears -->
+<div class="modal-overlay" id="permInfoModalOverlay" style="display:none;">
+  <div class="modal modal--center">
+    <h2>אישור שמירה לקובץ</h2>
+    <p>כדי שכל שינוי יישמר אוטומטית בקובץ, הדפדפן יבקש ממך עכשיו אישור לכך.<br>
+      בחלון הקטן שייפתח - לחץ על <strong style="white-space:nowrap">"שמירת השינויים"</strong>.</p>
+    <div class="modal-actions">
+      <button class="primary" id="permInfoContinue">הבנתי, המשך</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="permDeniedModalOverlay" style="display:none;">
+  <div class="modal modal--center">
+    <h2>הקובץ לא נפתח לשמירה</h2>
+    <p>בלי האישור אי אפשר לשמור שינויים בקובץ.</p>
+    <div class="modal-actions">
+      <button id="permDeniedBack">חזרה</button>
+      <button class="primary" id="permDeniedRetry">לנסות שוב</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="newFileInfoModalOverlay" style="display:none;">
-  <div class="modal">
-    <h2 style="text-align:center;">יצירת קובץ נתונים חדש 📁</h2>
-    <p style="font-size:17px; line-height:1.7; color: var(--muted); margin: 0 0 8px; text-align:center;">
+  <div class="modal modal--center">
+    <h2>יצירת קובץ נתונים חדש 📁</h2>
+    <p style="font-size:17px; color: var(--muted); margin: 0 0 8px;">
       בחלון הבא בחר איפה לשמור את הקובץ.<br><br>
       💡 מומלץ לשמור בתיקיית Dropbox או Google Drive —
       כך הנתונים מגובים אוטומטית בענן.<br><br>
@@ -1834,7 +1862,8 @@ async function loadFromHandle(handle, canPrompt = true) {
   try {
     let perm = await handle.queryPermission({ mode: 'readwrite' });
     if (perm === 'prompt' && canPrompt) {
-      perm = await handle.requestPermission({ mode: 'readwrite' });
+      perm = await askWritePermission(handle);
+      if (perm !== 'granted') { showPermissionDenied(handle); return false; }
     }
     if (perm !== 'granted') return false;
     file = await handle.getFile();
@@ -1852,6 +1881,35 @@ async function loadFromHandle(handle, canPrompt = true) {
   backupToLocalStorage();   // snapshot of the file as it was when opened
   showApp();
   return true;
+}
+
+/* The browser shows its own permission prompt, which we can't style or
+   reword. Explain it first in our own window; the click on "continue"
+   also gives the browser the user gesture it requires for the prompt. */
+function askWritePermission(handle) {
+  const overlay = document.getElementById('permInfoModalOverlay');
+  overlay.style.display = 'flex';
+  return new Promise(resolve => {
+    document.getElementById('permInfoContinue').onclick = async () => {
+      overlay.style.display = 'none';
+      try { resolve(await handle.requestPermission({ mode: 'readwrite' })); }
+      catch (e) { resolve('denied'); }
+    };
+  });
+}
+
+function showPermissionDenied(handle) {
+  const overlay = document.getElementById('permDeniedModalOverlay');
+  overlay.style.display = 'flex';
+  document.getElementById('permDeniedBack').onclick = () => { overlay.style.display = 'none'; };
+  document.getElementById('permDeniedRetry').onclick = async () => {
+    overlay.style.display = 'none';
+    try {
+      await loadFromHandle(handle);
+    } catch (e) {
+      alert('הקובץ שנטען אינו תקין או פגום. אנא בחר קובץ אחר או צור קובץ חדש.');
+    }
+  };
 }
 
 /* Create new data file */
