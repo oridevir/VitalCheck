@@ -570,39 +570,34 @@
       border-bottom: 2px solid #0f2244; padding-bottom: 4px; margin-bottom: 6px; }
     .pr-head h1 { font-size: 17pt; margin: 0; color: #0f2244; }
     .pr-head .pr-brand { font-size: 10pt; color: #555; }
-    .pr-meta { font-size: 10pt; color: #333; margin-bottom: 6px; line-height: 1.5; }
+    .pr-meta { font-size: 10pt; color: #333; margin-bottom: 10px; line-height: 1.5; }
     .pr-meta b { color: #000; }
-    .pr-summary { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; font-size: 10pt; }
+    .pr-summary { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; font-size: 10pt; }
     .pr-summary .hot { border: 2px solid #000; font-weight: 700; }
     .pr-summary span { border: 1px solid #bbb; border-radius: 4px; padding: 2px 8px; }
     .pr-table { width: 100%; border-collapse: collapse; box-shadow: none; border-radius: 0;
       background: #fff; backdrop-filter: none; }
-    .pr-table th, .pr-table td { border: 1px solid #c8c8c8; padding: 3px 6px; text-align: right;
-      font-size: 10.5pt; line-height: 1.3; vertical-align: middle; }
-    .pr-table th { background: #e6e9ef; color: #000; font-weight: 700; cursor: default; white-space: nowrap; }
+    .pr-table th, .pr-table td { border: none; border-bottom: 1px solid #ddd; padding: 6px 8px;
+      text-align: right; font-size: 10.5pt; line-height: 1.45; vertical-align: middle; }
+    .pr-table th { background: #e6e9ef; color: #000; font-weight: 700; cursor: default;
+      white-space: nowrap; border-bottom: 2px solid #888; }
     .pr-table thead { display: table-header-group; }
     .pr-table tr { page-break-inside: avoid; break-inside: avoid; }
     .pr-table td.num, .pr-table th.num { text-align: center; width: 1%; white-space: nowrap; }
-    .pr-table td.nowrap { white-space: nowrap; }
-    .pr-table td.st { border-right: 5px solid transparent; white-space: nowrap; }
-    .pr-table tr.row-danger td.st { border-right-color: #e74c3c; background: #fbe3e0; font-weight: 700; }
-    .pr-table tr.row-warn td.st { border-right-color: #f39c12; background: #fdecd9; font-weight: 700; }
-    .pr-table tr.row-ok td.st { border-right-color: #f1c40f; background: #fcf5d3; }
-    .pr-table tr.row-good td.st { border-right-color: #27ae60; }
-    .pr-table tr.row-none td.st { border-right-color: #bbb; color: #555; }
+    .pr-table td.nowrap, .pr-table td.st { white-space: nowrap; }
+    .pr-table tr.row-danger td.st, .pr-table tr.row-warn td.st { font-weight: 700; }
+    .pr-table tr.row-none td.st { color: #555; }
     .pr-table tbody tr { background: #fff !important; }
-    .pr-table tbody tr:nth-child(even) td:not(.st) { background: #f7f7f7; }
     .pr-table tr.pr-group { break-after: avoid; page-break-after: avoid; }
-    .pr-table tr.pr-group td { font-weight: 700; font-size: 11pt; padding: 5px 8px; color: #222;
-      border-top: 1.5px solid #555; border-right: 8px solid #999; background: #f0f0f0 !important; }
-    .pr-table tr.pr-gap td { height: 12px; padding: 0; border: none; background: #fff !important; }
+    .pr-table tr.pr-group td { font-weight: 700; font-size: 11pt; padding: 7px 10px; color: #222;
+      border: none; border-right: 6px solid #999; background: #f0f0f0 !important; }
+    .pr-table tr.pr-gap td { height: 22px; padding: 0; border: none; background: #fff !important; }
     .pr-table tr.pr-group td small { font-weight: 400; color: #444; }
     .pr-table tr.pr-group.g-danger td { background: #fbe0dc !important; border-right-color: #d64535; color: #6b1c12; }
     .pr-table tr.pr-group.g-warn td { background: #fde9d3 !important; border-right-color: #e8891a; color: #6b3a0c; }
     .pr-table tr.pr-group.g-ok td { background: #fbf3cc !important; border-right-color: #e0b400; color: #5c4a00; }
     .pr-table tr.pr-group.g-good td { background: #dff3e7 !important; border-right-color: #27ae60; color: #1d4a38; }
     .pr-table tr.pr-group.g-none td { background: #eeeeee !important; border-right-color: #aaa; color: #444; }
-    .pr-table tr.row-danger td:not(.st), .pr-table tr.row-warn td:not(.st) { font-weight: 700; }
     .pr-foot { margin-top: 8px; font-size: 8.5pt; color: #666; text-align: center; }
   }
 
@@ -1039,8 +1034,10 @@ function getStatus(expiry) {
 function statusLabel(status, expiry) {
   if (status === 'none') return 'ללא תוקף';
   const diff = monthsUntil(expiry);
+  if (diff === -1) return 'פג לפני חודש';
   if (diff < 0) return `פג לפני ${Math.abs(diff)} חודשים`;
   if (diff === 0) return 'פג החודש';
+  if (diff === 1) return 'נותר חודש';
   return `נותרו ${diff} חודשים`;
 }
 
