@@ -563,6 +563,27 @@
     gap: 10px;
   }
 
+  /* ---------- Recent files ---------- */
+  .recent-box { margin: 0 0 18px; text-align: right; }
+  .recent-title { font-size: 13px; font-weight: 700; color: var(--navy); margin: 0 0 8px; }
+  .recent-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; margin-bottom: 8px;
+    border: 1px solid #d4dfec; border-radius: 12px; background: #fff; cursor: pointer;
+  }
+  .recent-row:hover, .recent-row:focus-visible { border-color: var(--teal); background: #f3fbf8; }
+  .recent-row .ic { font-size: 20px; }
+  .recent-row .tx { flex: 1; min-width: 0; }
+  .recent-row .t1 { font-weight: 700; color: var(--ink); font-size: 15px; }
+  .recent-row .t2 { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+  #welcomeScreen .recent-row button.x {
+    border: none; background: none; color: #9aa5b1; font-size: 16px;
+    width: 32px; height: 32px; min-height: 32px; padding: 0; border-radius: 8px; cursor: pointer;
+  }
+  #welcomeScreen .recent-row button.x:hover { background: #fdecea; color: #b91c1c; }
+  .recent-sep { font-size: 12px; color: var(--muted); text-align: center; margin: 4px 0 10px; }
+  .tb-menu .tb-sub { font-size: 11px; color: var(--muted); padding: 6px 12px 2px; }
+
   /* ---------- Print ---------- */
   #printReport { display: none; }
   @media print {
@@ -795,6 +816,7 @@
       <div class="tb-menu-wrap">
         <button type="button" class="tb-menu-btn" id="fileMenuBtn" aria-haspopup="true" aria-expanded="false">📁 קובץ ▾</button>
         <div class="tb-menu" id="fileMenu">
+          <div id="fileMenuRecents"></div>
           <button type="button" id="printBtn">🖨️ הדפסה / PDF</button>
           <hr>
           <button type="button" id="saveAsBtn">💾 שמירה כקובץ חדש</button>
@@ -850,6 +872,12 @@
       תרופות, עירויים, ציוד החייאה ועוד.<br><br>
       🔴 פג תוקף / פג החודש &nbsp;·&nbsp; 🟠 פג בחודש הבא &nbsp;·&nbsp; 🟡 פג בעוד חודשיים &nbsp;·&nbsp; 🟢 תקף &nbsp;·&nbsp; ⚪ ללא תוקף<br><br>
       הנתונים נשמרים בקובץ מקומי במחשב שלך (מומלץ בתיקיית Dropbox / Google Drive לגיבוי אוטומטי). שינויים נשמרים אוטומטית.
+    </div>
+
+    <div class="recent-box" id="recentBox" style="display:none;">
+      <div class="recent-title">📂 קבצים אחרונים — לחיצה פותחת את הקובץ</div>
+      <div id="recentList"></div>
+      <div class="recent-sep">או</div>
     </div>
 
     <div class="welcome-buttons">
@@ -1280,7 +1308,7 @@ document.querySelectorAll('.tb-menu-wrap').forEach(wrap => {
 });
 document.addEventListener('click', () => closeMenus());
 // Choosing an action in the file menu closes it
-document.querySelectorAll('#fileMenu button').forEach(b => b.addEventListener('click', () => closeMenus()));
+document.querySelectorAll('#fileMenu > button').forEach(b => b.addEventListener('click', () => closeMenus()));
 
 function updateStatusButton() {
   if (!selectedStatuses.size) {
@@ -1466,6 +1494,7 @@ document.getElementById('titleSave').onclick = () => {
   customTitleLabelEl.textContent = customTitleText;
   titleModalOverlay.style.display = 'none';
   autoSave();
+  if (fileHandle) addRecent(fileHandle);
 };
 
 /* ---------- Category manager ---------- */
@@ -1734,6 +1763,134 @@ async function getHandleFromDB() {
   } catch(e) { return null; }
 }
 
+/* ---------- Recent files ----------
+   Up to MAX_RECENTS file handles kept in IndexedDB (this browser only), newest first.
+   Opening one needs a single click + the browser's permission prompt — no file search. */
+const MAX_RECENTS = 8;
+
+async function getRecents() {
+  try {
+    const db = await openDB();
+    const list = await new Promise(resolve => {
+      const req = db.transaction('handles', 'readonly').objectStore('handles').get('recentFiles');
+      req.onsuccess = () => resolve(Array.isArray(req.result) ? req.result : []);
+      req.onerror = () => resolve([]);
+    });
+    if (list.length) return list;
+    // First run with this feature: start from the single remembered file
+    const last = await getHandleFromDB();
+    return last ? [{ handle: last, title: last.name.replace(/\.json$/i, ''), openedAt: null }] : [];
+  } catch (e) { return []; }
+}
+
+async function saveRecents(list) {
+  try {
+    const db = await openDB();
+    db.transaction('handles', 'readwrite').objectStore('handles').put(list.slice(0, MAX_RECENTS), 'recentFiles');
+  } catch (e) {}
+}
+
+async function sameFile(a, b) {
+  try { return await a.isSameEntry(b); } catch (e) { return false; }
+}
+
+// Put this file at the top of the list (or refresh its title)
+async function addRecent(handle) {
+  if (!handle) return;
+  const list = await getRecents();
+  const rest = [];
+  for (const r of list) if (!(await sameFile(r.handle, handle))) rest.push(r);
+  await saveRecents([{ handle, title: customTitleText, openedAt: Date.now() }, ...rest]);
+  renderRecents();
+}
+
+async function removeRecent(handle) {
+  const list = await getRecents();
+  const rest = [];
+  for (const r of list) if (!(await sameFile(r.handle, handle))) rest.push(r);
+  await saveRecents(rest);
+  renderRecents();
+}
+
+function formatOpenedAt(ts) {
+  if (!ts) return '';
+  const d = new Date(ts), now = new Date();
+  const time = d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+  const days = Math.round((new Date(now.toDateString()) - new Date(d.toDateString())) / 86400000);
+  if (days === 0) return `נפתח היום, ${time}`;
+  if (days === 1) return `נפתח אתמול, ${time}`;
+  if (days < 7) return `נפתח לפני ${days} ימים`;
+  return `נפתח ב-${d.toLocaleDateString('he-IL')}`;
+}
+
+async function openRecent(handle) {
+  closeMenus();
+  if (fileHandle && await sameFile(fileHandle, handle)) return;
+  if (hasUnsavedData() && !(await confirmDiscardUnsaved())) return;
+  let ok = false;
+  try {
+    ok = await loadFromHandle(handle);
+  } catch (e) {
+    showMessage('הקובץ פגום', 'הקובץ שנטען אינו תקין או פגום. אנא בחר קובץ אחר או צור קובץ חדש.');
+    return;
+  }
+  if (ok) { await saveHandleToDB(handle); return; }
+  if (lastLoadError === 'NotFoundError') {
+    const remove = await showDialog({
+      title: 'הקובץ לא נמצא',
+      html: `הקובץ <strong>"${escapeHtml(handle.name)}"</strong> לא נמצא במקום שבו היה.<br>ייתכן שהוא הועבר, שונה שמו או נמחק.`,
+      buttons: [{ label: 'השאר ברשימה', value: false }, { label: 'הסר מהרשימה', value: true, kind: 'primary' }]
+    });
+    if (remove) removeRecent(handle);
+  }
+}
+
+async function renderRecents() {
+  if (!hasFS) return;
+  const list = await getRecents();
+
+  // Welcome screen
+  const box = document.getElementById('recentBox');
+  const listEl = document.getElementById('recentList');
+  listEl.innerHTML = '';
+  list.forEach(r => {
+    const row = document.createElement('div');
+    row.className = 'recent-row';
+    row.setAttribute('role', 'button');
+    row.tabIndex = 0;
+    row.innerHTML = `<span class="ic" aria-hidden="true">📋</span>
+      <div class="tx"><div class="t1"></div><div class="t2"></div></div>
+      <button type="button" class="x" title="הסרה מהרשימה (הקובץ עצמו לא נמחק)" aria-label="הסרה מהרשימה">✕</button>`;
+    row.querySelector('.t1').textContent = r.title || r.handle.name;
+    row.querySelector('.t2').textContent = [r.handle.name, formatOpenedAt(r.openedAt)].filter(Boolean).join(' · ');
+    row.onclick = () => openRecent(r.handle);
+    row.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openRecent(r.handle); } };
+    row.querySelector('.x').onclick = e => { e.stopPropagation(); removeRecent(r.handle); };
+    listEl.appendChild(row);
+  });
+  box.style.display = list.length ? 'block' : 'none';
+
+  // File menu: the other files (not the one that is open)
+  const menuEl = document.getElementById('fileMenuRecents');
+  menuEl.innerHTML = '';
+  const others = [];
+  for (const r of list) if (!(fileHandle && await sameFile(r.handle, fileHandle))) others.push(r);
+  if (others.length) {
+    const sub = document.createElement('div');
+    sub.className = 'tb-sub';
+    sub.textContent = 'מעבר לתיק אחר';
+    menuEl.appendChild(sub);
+    others.forEach(r => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = `📋 ${r.title || r.handle.name}`;
+      b.onclick = () => openRecent(r.handle);
+      menuEl.appendChild(b);
+    });
+    menuEl.appendChild(document.createElement('hr'));
+  }
+}
+
 function serializeData() {
   return JSON.stringify({ title: customTitleText, categories, items }, null, 2);
 }
@@ -1924,6 +2081,7 @@ async function saveAsNewFile() {
     await writeToFile(handle, serializeData());
     fileHandle = handle;
     await saveHandleToDB(handle);
+    addRecent(handle);
     showConnectedStatus(handle.name, 'נשמר ומחובר לקובץ');
   } catch (err) {
     if (err.name !== 'AbortError') showMessage('שגיאה בשמירה', 'שגיאה בשמירת הקובץ: ' + err.message);
@@ -1961,8 +2119,10 @@ function showApp() {
 // startup auto-load). Throws if the file *was* read but its content is
 // invalid, so interactive callers can show the corrupt-file alert
 // instead of failing silently.
+let lastLoadError = null;
 async function loadFromHandle(handle, canPrompt = true) {
   let file, text;
+  lastLoadError = null;
   try {
     let perm = await handle.queryPermission({ mode: 'readwrite' });
     if (perm === 'prompt' && canPrompt) {
@@ -1974,12 +2134,14 @@ async function loadFromHandle(handle, canPrompt = true) {
     text = await file.text();
   } catch (e) {
     console.error('loadFromHandle: could not access file:', e);
+    lastLoadError = e && e.name;
     return false;
   }
 
   parseData(text);
 
   fileHandle = handle;
+  addRecent(handle);
   showConnectedStatus(file.name);
   forceNewBackup = true;
   backupToLocalStorage();   // snapshot of the file as it was when opened
@@ -2043,6 +2205,7 @@ document.getElementById('newFileInfoContinue').onclick = async () => {
     await writeToFile(handle, serializeData());
     fileHandle = handle;
     await saveHandleToDB(handle);
+    addRecent(handle);
     showConnectedStatus(handle.name, 'נוצר קובץ חדש');
     showApp();
   } catch(err) {
@@ -2160,6 +2323,7 @@ closeOnBackdrop(backupsModalOverlay, () => { backupsModalOverlay.style.display =
 
   if (!hasFS) return; // stay on welcome screen
 
+  renderRecents();
   const savedHandle = await getHandleFromDB();
   if (savedHandle) {
     let ok = false;
@@ -2170,7 +2334,7 @@ closeOnBackdrop(backupsModalOverlay, () => { backupsModalOverlay.style.display =
     }
     if (ok) return;
     const notice = document.getElementById('reopenNotice');
-    if (notice) {
+    if (notice && !(await getRecents()).length) {
       notice.textContent = 'נמצא קובץ אחרון מהפעם הקודמת. לחץ "יש לי כבר קובץ" כדי לפתוח אותו.';
       notice.style.display = 'block';
     }
