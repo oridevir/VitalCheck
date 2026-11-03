@@ -870,7 +870,7 @@
     <div class="welcome-buttons">
       <button class="primary" id="createNewBtn">✨ התחלה חדשה — צור קובץ נתונים</button>
       <button class="navy" id="openExistingBtn">📂 יש לי כבר קובץ — פתח אותו</button>
-      <button id="restoreBtn">♻️ שחזור מגיבוי אחרון</button>
+      <button id="restoreBtn">♻️ שחזור מגיבוי</button>
     </div>
 
     <div class="browser-note" id="reopenNotice" style="display:none;"></div>
@@ -918,7 +918,7 @@
     <label>קטגוריה</label>
     <select id="modalCategory"></select>
     <input type="text" id="modalNewCategory" placeholder="שם הקטגוריה החדשה" style="display:none; margin-top:8px;" />
-    <label>תוקף (חודש/שנה) — השאר ריק אם אין תוקף. לדוגמה: 06/25</label>
+    <label>תוקף (חודש/שנה) — השאר ריק אם אין תוקף. לדוגמה: 06/28</label>
     <input type="text" id="modalExpiry" placeholder="MM/YY" inputmode="numeric" maxlength="5" />
     <div class="modal-actions">
       <button id="modalCancel">ביטול</button>
@@ -941,6 +941,20 @@
 </div>
 
 <!-- Category manager modal -->
+<!-- Backups modal -->
+<div class="modal-overlay" id="backupsModalOverlay" style="display:none;">
+  <div class="modal">
+    <h2>שחזור מגיבוי</h2>
+    <p style="margin:0 0 10px; color:var(--muted); font-size:13px;">
+      הגיבויים נשמרים אוטומטית בדפדפן הזה בכל שינוי. בחר את הגיבוי שברצונך לשחזר:
+    </p>
+    <div id="backupsList" style="max-height: 320px; overflow-y: auto;"></div>
+    <div class="modal-actions">
+      <button id="backupsClose">סגירה</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="catsModalOverlay" style="display:none;">
   <div class="modal">
     <h2>ניהול קטגוריות</h2>
@@ -1120,6 +1134,9 @@ function render() {
   const filtered = getVisibleItems();
   tableBody.innerHTML = '';
   emptyState.style.display = filtered.length === 0 ? 'block' : 'none';
+  emptyState.textContent = items.length === 0
+    ? 'אין עדיין פריטים — לחץ "+ הוספת פריט" כדי להתחיל'
+    : 'אין פריטים שמתאימים לחיפוש או לסינון שבחרת';
 
   filtered.forEach(item => {
     const status = getStatus(item.expiry);
@@ -1293,7 +1310,7 @@ document.getElementById('modalSave').onclick = () => {
   let expiry = null;
   if (rawExpiry) {
     expiry = parseExpiryInput(rawExpiry);
-    if (!expiry) { alert('תוקף לא תקין. נא להזין בפורמט MM/YY, לדוגמה 06/25'); return; }
+    if (!expiry) { alert('תוקף לא תקין. נא להזין בפורמט MM/YY, לדוגמה 06/28'); return; }
   }
   if (!name) { alert('יש להזין שם פריט'); return; }
   const rawQty = modalQuantity.value.trim();
@@ -1653,10 +1670,65 @@ async function writeToFile(handle, json) {
   await writable.close();
 }
 
-function backupToLocalStorage() {
+/* Local backups: a list of up to MAX_BACKUPS snapshots in this browser.
+   Changes to the same file within BACKUP_MERGE_MS update its latest
+   snapshot; another file, or a later session, adds a new one — so working
+   on one file never overwrites the backup of another. */
+const BACKUPS_KEY = 'vitalcheck_backups';
+const MAX_BACKUPS = 15;
+const BACKUP_MERGE_MS = 60 * 60 * 1000;
+
+function getBackups() {
   try {
-    localStorage.setItem('vitalcheck_backup', serializeData());
-    localStorage.setItem('vitalcheck_backup_time', new Date().toISOString());
+    const list = JSON.parse(localStorage.getItem(BACKUPS_KEY) || '[]');
+    if (Array.isArray(list) && list.length) return list;
+    // One-time migration from the old single-slot backup
+    const old = localStorage.getItem('vitalcheck_backup');
+    if (old) {
+      const parsed = JSON.parse(old);
+      const its = Array.isArray(parsed) ? parsed : (parsed.items || []);
+      return [{
+        time: localStorage.getItem('vitalcheck_backup_time') || new Date().toISOString(),
+        title: (parsed && parsed.title) || 'התיק שלי',
+        file: null,
+        count: its.length,
+        data: old
+      }];
+    }
+  } catch (e) {}
+  return [];
+}
+
+// Set after opening a file or restoring, so the first backup afterwards
+// starts a new snapshot instead of updating an earlier one.
+let forceNewBackup = false;
+
+function backupToLocalStorage() {
+  if (!items.length) return;
+  try {
+    const list = getBackups();
+    const now = new Date();
+    const entry = {
+      time: now.toISOString(),
+      title: customTitleText,
+      file: fileHandle ? fileHandle.name : currentFileName,
+      count: items.length,
+      data: serializeData()
+    };
+    const last = list[0];
+    if (!forceNewBackup && last && last.title === entry.title && last.file === entry.file &&
+        now - new Date(last.time) < BACKUP_MERGE_MS) {
+      list[0] = entry;
+    } else {
+      list.unshift(entry);
+    }
+    forceNewBackup = false;
+    let trimmed = list.slice(0, MAX_BACKUPS);
+    // If storage is full, drop the oldest snapshots until it fits
+    while (trimmed.length) {
+      try { localStorage.setItem(BACKUPS_KEY, JSON.stringify(trimmed)); break; }
+      catch (e) { trimmed = trimmed.slice(0, -1); }
+    }
   } catch(e) {}
 }
 
@@ -1772,6 +1844,8 @@ async function loadFromHandle(handle, canPrompt = true) {
 
   fileHandle = handle;
   showConnectedStatus(file.name);
+  forceNewBackup = true;
+  backupToLocalStorage();   // snapshot of the file as it was when opened
   showApp();
   return true;
 }
@@ -1828,6 +1902,8 @@ async function openExisting() {
         }
         fileHandle = null;
         currentFileName = file.name;
+        forceNewBackup = true;
+        backupToLocalStorage();
         showApp();
         showUnsavedStatus(`נטען "${file.name}", אבל הדפדפן הזה לא יודע לשמור אוטומטית. אחרי שינויים יש להוריד קובץ מעודכן`);
       };
@@ -1857,27 +1933,62 @@ document.getElementById('saveAsBtn').onclick = saveAsNewFile;
 
 /* Restore from backup */
 const restoreBtn = document.getElementById('restoreBtn');
-document.getElementById('restoreBtn').onclick = async () => {
-  const backup = localStorage.getItem('vitalcheck_backup');
-  if (!backup) return;
+const backupsModalOverlay = document.getElementById('backupsModalOverlay');
+
+function formatBackupTime(iso) {
+  const d = new Date(iso);
+  return `${d.toLocaleDateString('he-IL')} ${d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}`;
+}
+
+function restoreBackup(entry) {
   try {
-    parseData(backup);
+    parseData(entry.data);
   } catch (e) {
-    alert('הקובץ שנטען אינו תקין או פגום. אנא בחר קובץ אחר או צור קובץ חדש.');
+    alert('הגיבוי הזה פגום ולא ניתן לשחזר אותו. נסה גיבוי אחר.');
     return;
   }
   fileHandle = null;
+  currentFileName = null;
+  forceNewBackup = true;
+  backupsModalOverlay.style.display = 'none';
   showApp();
-  showUnsavedStatus('♻️ הנתונים שוחזרו מהגיבוי');
+  showUnsavedStatus(`♻️ שוחזר הגיבוי מ-${formatBackupTime(entry.time)}`);
+}
+
+restoreBtn.onclick = () => {
+  const list = getBackups();
+  const box = document.getElementById('backupsList');
+  box.innerHTML = '';
+  list.forEach(entry => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex; align-items:center; gap:10px; padding:10px 4px; border-bottom:1px solid var(--line);';
+    const info = document.createElement('div');
+    info.style.flex = '1';
+    const title = document.createElement('strong');
+    title.textContent = entry.title;
+    const details = document.createElement('div');
+    details.style.cssText = 'color:var(--muted); font-size:12px;';
+    details.textContent = `${entry.count} פריטים · ${formatBackupTime(entry.time)}` +
+      (entry.file ? ` · קובץ: ${entry.file}` : '');
+    info.append(title, details);
+    const btn = document.createElement('button');
+    btn.className = 'primary';
+    btn.textContent = 'שחזר';
+    btn.onclick = () => restoreBackup(entry);
+    row.append(info, btn);
+    box.appendChild(row);
+  });
+  backupsModalOverlay.style.display = 'flex';
 };
+document.getElementById('backupsClose').onclick = () => backupsModalOverlay.style.display = 'none';
+backupsModalOverlay.addEventListener('click', e => { if (e.target === backupsModalOverlay) backupsModalOverlay.style.display = 'none'; });
 
 /* ---------- Startup ---------- */
 (async () => {
   // Show restore button if backup exists
-  const backupTime = localStorage.getItem('vitalcheck_backup_time');
-  if (backupTime) {
-    const d = new Date(backupTime);
-    restoreBtn.textContent = `♻️ שחזור מגיבוי אחרון (${d.toLocaleDateString('he-IL')} ${d.toLocaleTimeString('he-IL', {hour:'2-digit',minute:'2-digit'})})`;
+  const backups = getBackups();
+  if (backups.length) {
+    restoreBtn.textContent = `♻️ שחזור מגיבוי (${backups.length} גיבויים, האחרון: ${formatBackupTime(backups[0].time)})`;
     restoreBtn.style.display = 'block';
   }
 
