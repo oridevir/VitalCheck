@@ -217,6 +217,15 @@
     color: var(--ink);
   }
 
+  .status-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .toolbar .status-chips .chip {
+    height: 36px; padding: 0 12px; border-radius: 18px; font-size: 13px;
+    background: var(--panel); border: 1px solid #c8d5e3; color: var(--navy);
+  }
+  .toolbar .status-chips .chip[aria-pressed="true"] {
+    background: var(--navy); border-color: var(--navy); color: #fff; font-weight: 600;
+  }
+
   .toolbar button {
     height: 42px;
     box-sizing: border-box;
@@ -555,20 +564,21 @@
     @page { size: A4; margin: 12mm 10mm; }
     body > *:not(#printReport) { display: none !important; }
     body { background: #fff !important; }
-    #printReport { display: block !important; color: #000; font-size: 9.5pt; }
+    #printReport { display: block !important; color: #000; font-size: 10.5pt; }
     #printReport * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .pr-head { display: flex; justify-content: space-between; align-items: flex-end;
       border-bottom: 2px solid #0f2244; padding-bottom: 4px; margin-bottom: 6px; }
-    .pr-head h1 { font-size: 15pt; margin: 0; color: #0f2244; }
-    .pr-head .pr-brand { font-size: 9pt; color: #555; }
-    .pr-meta { font-size: 8.5pt; color: #333; margin-bottom: 6px; line-height: 1.5; }
+    .pr-head h1 { font-size: 17pt; margin: 0; color: #0f2244; }
+    .pr-head .pr-brand { font-size: 10pt; color: #555; }
+    .pr-meta { font-size: 10pt; color: #333; margin-bottom: 6px; line-height: 1.5; }
     .pr-meta b { color: #000; }
-    .pr-summary { display: flex; gap: 6px; margin-bottom: 8px; font-size: 8.5pt; }
+    .pr-summary { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; font-size: 10pt; }
+    .pr-summary .hot { border: 2px solid #000; font-weight: 700; }
     .pr-summary span { border: 1px solid #bbb; border-radius: 4px; padding: 2px 8px; }
     .pr-table { width: 100%; border-collapse: collapse; box-shadow: none; border-radius: 0;
       background: #fff; backdrop-filter: none; }
-    .pr-table th, .pr-table td { border: 1px solid #c8c8c8; padding: 2px 5px; text-align: right;
-      font-size: 9pt; line-height: 1.3; vertical-align: middle; }
+    .pr-table th, .pr-table td { border: 1px solid #c8c8c8; padding: 3px 6px; text-align: right;
+      font-size: 10.5pt; line-height: 1.3; vertical-align: middle; }
     .pr-table th { background: #e6e9ef; color: #000; font-weight: 700; cursor: default; white-space: nowrap; }
     .pr-table thead { display: table-header-group; }
     .pr-table tr { page-break-inside: avoid; break-inside: avoid; }
@@ -582,9 +592,12 @@
     .pr-table tr.row-none td.st { border-right-color: #bbb; color: #555; }
     .pr-table tbody tr { background: #fff !important; }
     .pr-table tbody tr:nth-child(even) td:not(.st) { background: #f7f7f7; }
-    .pr-sign { margin-top: 14px; font-size: 9pt; display: flex; gap: 28px; page-break-inside: avoid; }
-    .pr-sign span { flex: 1; border-top: 1px solid #000; padding-top: 2px; }
-    .pr-foot { margin-top: 8px; font-size: 7.5pt; color: #666; text-align: center; }
+    .pr-table tr.pr-group { break-after: avoid; page-break-after: avoid; }
+    .pr-table tr.pr-group td { background: #3a3a3a !important; color: #fff; font-weight: 700;
+      font-size: 11pt; padding: 4px 8px; border-color: #3a3a3a; }
+    .pr-table tr.pr-group td small { font-weight: 400; opacity: 0.85; }
+    .pr-table tr.row-danger td:not(.st), .pr-table tr.row-warn td:not(.st) { font-weight: 700; }
+    .pr-foot { margin-top: 8px; font-size: 8.5pt; color: #666; text-align: center; }
   }
 
   /* ---------- Mobile ---------- */
@@ -800,14 +813,13 @@
   <div class="toolbar-group">
     <div class="toolbar-group-label">סטטוסים</div>
     <div class="toolbar-group-controls">
-      <select id="statusFilter">
-        <option value="">כל הסטטוסים</option>
-        <option value="danger">אדום — פג / קרוב מאוד</option>
-        <option value="warn">כתום — 1-2 חודשים</option>
-        <option value="ok">צהוב — מתחת ל-3 חודשים</option>
-        <option value="good">ירוק — תקף</option>
-        <option value="none">בלי תוקף</option>
-      </select>
+      <div id="statusFilter" class="status-chips" title="אפשר לבחור כמה סטטוסים יחד. בלי בחירה — מוצגים כולם">
+        <button type="button" class="chip" data-status="danger" aria-pressed="false">🔴 פג / קרוב</button>
+        <button type="button" class="chip" data-status="warn" aria-pressed="false">🟠 1-2 חודשים</button>
+        <button type="button" class="chip" data-status="ok" aria-pressed="false">🟡 מתחת ל-3</button>
+        <button type="button" class="chip" data-status="good" aria-pressed="false">🟢 תקף</button>
+        <button type="button" class="chip" data-status="none" aria-pressed="false">⚪ ללא תוקף</button>
+      </div>
     </div>
   </div>
   <div class="toolbar-group">
@@ -989,6 +1001,7 @@ const fileStatus = document.getElementById('fileStatus');
 const searchInput = document.getElementById('searchInput');
 const categoryFilter = document.getElementById('categoryFilter');
 const statusFilter = document.getElementById('statusFilter');
+const selectedStatuses = new Set();
 const summary = document.getElementById('summary');
 const welcomeScreen = document.getElementById('welcomeScreen');
 const appContent = document.getElementById('appContent');
@@ -1069,12 +1082,12 @@ function refreshModalCategorySelect(selected) {
 function getVisibleItems() {
   const q = searchInput.value.trim().toLowerCase();
   const catF = categoryFilter.value;
-  const statF = statusFilter.value;
+
 
   let filtered = items.filter(item => {
     if (q && !item.name.toLowerCase().includes(q)) return false;
     if (catF && item.category !== catF) return false;
-    if (statF && getStatus(item.expiry) !== statF) return false;
+    if (selectedStatuses.size && !selectedStatuses.has(getStatus(item.expiry))) return false;
     return true;
   });
 
@@ -1180,7 +1193,14 @@ document.querySelectorAll('thead th[data-key]').forEach(th => {
 
 searchInput.addEventListener('input', render);
 categoryFilter.addEventListener('change', render);
-statusFilter.addEventListener('change', render);
+statusFilter.querySelectorAll('.chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    const st = chip.dataset.status;
+    if (selectedStatuses.has(st)) selectedStatuses.delete(st); else selectedStatuses.add(st);
+    chip.setAttribute('aria-pressed', selectedStatuses.has(st));
+    render();
+  });
+});
 
 /* ---------- Item modal ---------- */
 const modalOverlay = document.getElementById('modalOverlay');
@@ -1459,22 +1479,43 @@ function buildPrintReport() {
   const filters = [];
   if (searchInput.value.trim()) filters.push(`חיפוש: "${searchInput.value.trim()}"`);
   if (categoryFilter.value) filters.push(`קטגוריה: ${categoryFilter.value}`);
-  if (statusFilter.value) filters.push(`סטטוס: ${statusFilter.options[statusFilter.selectedIndex].text}`);
+  if (selectedStatuses.size) {
+    const names = [...statusFilter.querySelectorAll('.chip')]
+      .filter(c => selectedStatuses.has(c.dataset.status))
+      .map(c => c.textContent.replace(/^\S+\s/, ''));
+    filters.push(`סטטוס: ${names.join(' + ')}`);
+  }
 
   const fileName = fileHandle ? fileHandle.name : (currentFileName || 'לא שמור בקובץ');
   const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-  const rows = list.map((item, idx) => {
+  // Group by urgency so the report reads correctly even on a black & white printer
+  const groups = [
+    ['danger', 'פג תוקף או פג החודש — לטיפול מיידי'],
+    ['warn', 'פג בעוד חודש'],
+    ['ok', 'פג בעוד חודשיים'],
+    ['good', 'תקף (3 חודשים ומעלה)'],
+    ['none', 'ללא תאריך תוקף']
+  ];
+  let n = 0;
+  const rows = groups.map(([key, title]) => {
+    const groupItems = list.filter(i => getStatus(i.expiry) === key);
+    if (!groupItems.length) return '';
+    return `<tr class="pr-group"><td colspan="6">${title} <small>(${groupItems.length} פריטים)</small></td></tr>` +
+      groupItems.map(item => printRow(item, ++n)).join('');
+  }).join('');
+
+  function printRow(item, num) {
     const st = getStatus(item.expiry);
     return `<tr class="${rowClass(st)}">
-      <td class="num">${idx + 1}</td>
+      <td class="num">${num}</td>
       <td>${esc(item.name)}</td>
       <td class="num">${item.quantity == null ? '' : item.quantity}</td>
       <td class="nowrap">${formatExpiry(item.expiry)}</td>
       <td class="st">${statusLabel(st, item.expiry)}</td>
       <td>${esc(item.category)}</td>
     </tr>`;
-  }).join('');
+  }
 
   document.getElementById('printReport').innerHTML = `
     <div class="pr-head">
@@ -1488,11 +1529,11 @@ function buildPrintReport() {
       ${filters.length ? `<br><b>סינון פעיל:</b> ${esc(filters.join(' · '))}` : ''}
     </div>
     <div class="pr-summary">
-      <span>🔴 פג / קרוב: <b>${counts.danger}</b></span>
-      <span>🟠 1-2 חודשים: <b>${counts.warn}</b></span>
-      <span>🟡 מתחת ל-3: <b>${counts.ok}</b></span>
-      <span>🟢 תקף: <b>${counts.good}</b></span>
-      <span>⚪ ללא תוקף: <b>${counts.none}</b></span>
+      <span class="${counts.danger ? 'hot' : ''}">פג / פג החודש: <b>${counts.danger}</b></span>
+      <span class="${counts.warn ? 'hot' : ''}">פג בעוד חודש: <b>${counts.warn}</b></span>
+      <span>בעוד חודשיים: <b>${counts.ok}</b></span>
+      <span>תקף: <b>${counts.good}</b></span>
+      <span>ללא תוקף: <b>${counts.none}</b></span>
     </div>
     <table class="pr-table">
       <thead><tr>
@@ -1501,9 +1542,6 @@ function buildPrintReport() {
       </tr></thead>
       <tbody>${rows || '<tr><td colspan="6">אין פריטים</td></tr>'}</tbody>
     </table>
-    <div class="pr-sign">
-      <span>נבדק על ידי</span><span>חתימה</span><span>תאריך בדיקה</span>
-    </div>
     <div class="pr-foot">הופק באמצעות VitalCheck · ד"ר אורי דביר · VitalCheck@DrDevir.com</div>
   `;
 }
