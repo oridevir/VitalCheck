@@ -2,7 +2,7 @@
   "id": "/",
   "name": "VitalCheck — מעקב תוקף ציוד רפואי",
   "short_name": "VitalCheck",
-  "description": "מעקב אחר תוקף ציוד רפואי, עם התראה מבעוד מועד לפני פקיעת התוקף.",
+  "description": "מעקב אחר תאריכי תוקף ומלאי של ציוד רפואי — לתיק כונן, אמבולנס או מרפאה",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

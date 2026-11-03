@@ -818,9 +818,9 @@
     <div class="toolbar-group-label">סטטוסים</div>
     <div class="toolbar-group-controls">
       <div id="statusFilter" class="status-chips" title="אפשר לבחור כמה סטטוסים יחד. בלי בחירה — מוצגים כולם">
-        <button type="button" class="chip" data-status="danger" aria-pressed="false">🔴 פג / קרוב</button>
-        <button type="button" class="chip" data-status="warn" aria-pressed="false">🟠 1-2 חודשים</button>
-        <button type="button" class="chip" data-status="ok" aria-pressed="false">🟡 מתחת ל-3</button>
+        <button type="button" class="chip" data-status="danger" aria-pressed="false">🔴 פג / פג החודש</button>
+        <button type="button" class="chip" data-status="warn" aria-pressed="false">🟠 חודש הבא</button>
+        <button type="button" class="chip" data-status="ok" aria-pressed="false">🟡 בעוד חודשיים</button>
         <button type="button" class="chip" data-status="good" aria-pressed="false">🟢 תקף</button>
         <button type="button" class="chip" data-status="none" aria-pressed="false">⚪ ללא תוקף</button>
       </div>
@@ -841,9 +841,9 @@
 
 <div class="legend" id="mainLegend" style="display:none;">
   <span><span class="swatch swatch-good"></span> תקף</span>
-  <span><span class="swatch swatch-ok"></span> מתחת ל-3 חודשים</span>
-  <span><span class="swatch swatch-warn"></span> 1-2 חודשים</span>
-  <span><span class="swatch swatch-danger"></span> פג / קרוב מאוד</span>
+  <span><span class="swatch swatch-ok"></span> פג בעוד חודשיים</span>
+  <span><span class="swatch swatch-warn"></span> פג בחודש הבא</span>
+  <span><span class="swatch swatch-danger"></span> פג תוקף / פג החודש</span>
   <span><span class="swatch swatch-none"></span> ללא תוקף</span>
 </div>
 
@@ -1192,9 +1192,9 @@ function renderSummary(filtered) {
   const html = `
     <span>סה"כ פריטים: <strong>${items.length}</strong></span>
     <span>מוצגים: <strong>${filtered.length}</strong></span>
-    <span style="color:#5a1a12;">🔴 פג / קרוב: <strong>${counts.danger}</strong></span>
-    <span style="color:#5c3514;">🟠 1-2 חודשים: <strong>${counts.warn}</strong></span>
-    <span style="color:#5c4f0a;">🟡 מתחת ל-3: <strong>${counts.ok}</strong></span>
+    <span style="color:#5a1a12;">🔴 פג / פג החודש: <strong>${counts.danger}</strong></span>
+    <span style="color:#5c3514;">🟠 חודש הבא: <strong>${counts.warn}</strong></span>
+    <span style="color:#5c4f0a;">🟡 בעוד חודשיים: <strong>${counts.ok}</strong></span>
     <span style="color:#1d4a38;">🟢 תקף: <strong>${counts.good}</strong></span>
     <span>⚪ ללא תוקף: <strong>${counts.none}</strong></span>
   `;
@@ -1514,11 +1514,11 @@ function buildPrintReport() {
 
   // Group by urgency so the report reads correctly even on a black & white printer
   const groups = [
-    ['danger', 'פג תוקף או פג החודש — לטיפול מיידי'],
-    ['warn', 'פג בעוד חודש'],
+    ['danger', 'פג תוקף / פג החודש — לטיפול מיידי'],
+    ['warn', 'פג בחודש הבא'],
     ['ok', 'פג בעוד חודשיים'],
     ['good', 'תקף (3 חודשים ומעלה)'],
-    ['none', 'ללא תאריך תוקף']
+    ['none', 'ללא תוקף']
   ];
   let n = 0;
   const rows = groups.map(([key, title]) => {
@@ -1553,9 +1553,9 @@ function buildPrintReport() {
       ${filters.length ? `<br><b>סינון פעיל:</b> ${esc(filters.join(' · '))}` : ''}
     </div>
     <div class="pr-summary">
-      <span class="${counts.danger ? 'hot' : ''}">פג / פג החודש: <b>${counts.danger}</b></span>
-      <span class="${counts.warn ? 'hot' : ''}">פג בעוד חודש: <b>${counts.warn}</b></span>
-      <span>בעוד חודשיים: <b>${counts.ok}</b></span>
+      <span class="${counts.danger ? 'hot' : ''}">פג תוקף / פג החודש: <b>${counts.danger}</b></span>
+      <span class="${counts.warn ? 'hot' : ''}">פג בחודש הבא: <b>${counts.warn}</b></span>
+      <span>פג בעוד חודשיים: <b>${counts.ok}</b></span>
       <span>תקף: <b>${counts.good}</b></span>
       <span>ללא תוקף: <b>${counts.none}</b></span>
     </div>
