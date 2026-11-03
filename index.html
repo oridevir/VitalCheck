@@ -550,21 +550,45 @@
   }
 
   /* ---------- Print ---------- */
+  #printReport { display: none; }
   @media print {
-    header, .toolbar, .legend, .file-status, .credit, .actions-cell, button, #summaryTop { display: none !important; }
-    .bg-blobs { display: none !important; }
-    body { background: #fff; }
-    main { padding: 0; }
-    table { box-shadow: none; }
-    thead th { background: #eee !important; color: #000 !important; -webkit-print-color-adjust: exact; }
-    tbody tr { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .print-header { display: block !important; text-align: center; margin-bottom: 16px; }
+    @page { size: A4; margin: 12mm 10mm; }
+    body > *:not(#printReport) { display: none !important; }
+    body { background: #fff !important; }
+    #printReport { display: block !important; color: #000; font-size: 9.5pt; }
+    #printReport * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .pr-head { display: flex; justify-content: space-between; align-items: flex-end;
+      border-bottom: 2px solid #0f2244; padding-bottom: 4px; margin-bottom: 6px; }
+    .pr-head h1 { font-size: 15pt; margin: 0; color: #0f2244; }
+    .pr-head .pr-brand { font-size: 9pt; color: #555; }
+    .pr-meta { font-size: 8.5pt; color: #333; margin-bottom: 6px; line-height: 1.5; }
+    .pr-meta b { color: #000; }
+    .pr-summary { display: flex; gap: 6px; margin-bottom: 8px; font-size: 8.5pt; }
+    .pr-summary span { border: 1px solid #bbb; border-radius: 4px; padding: 2px 8px; }
+    .pr-table { width: 100%; border-collapse: collapse; box-shadow: none; border-radius: 0;
+      background: #fff; backdrop-filter: none; }
+    .pr-table th, .pr-table td { border: 1px solid #c8c8c8; padding: 2px 5px; text-align: right;
+      font-size: 9pt; line-height: 1.3; vertical-align: middle; }
+    .pr-table th { background: #e6e9ef; color: #000; font-weight: 700; cursor: default; white-space: nowrap; }
+    .pr-table thead { display: table-header-group; }
+    .pr-table tr { page-break-inside: avoid; break-inside: avoid; }
+    .pr-table td.num, .pr-table th.num { text-align: center; width: 1%; white-space: nowrap; }
+    .pr-table td.nowrap { white-space: nowrap; }
+    .pr-table td.st { border-right: 5px solid transparent; white-space: nowrap; }
+    .pr-table tr.row-danger td.st { border-right-color: #e74c3c; background: #fbe3e0; font-weight: 700; }
+    .pr-table tr.row-warn td.st { border-right-color: #f39c12; background: #fdecd9; font-weight: 700; }
+    .pr-table tr.row-ok td.st { border-right-color: #f1c40f; background: #fcf5d3; }
+    .pr-table tr.row-good td.st { border-right-color: #27ae60; }
+    .pr-table tr.row-none td.st { border-right-color: #bbb; color: #555; }
+    .pr-table tbody tr { background: #fff !important; }
+    .pr-table tbody tr:nth-child(even) td:not(.st) { background: #f7f7f7; }
+    .pr-sign { margin-top: 14px; font-size: 9pt; display: flex; gap: 28px; page-break-inside: avoid; }
+    .pr-sign span { flex: 1; border-top: 1px solid #000; padding-top: 2px; }
+    .pr-foot { margin-top: 8px; font-size: 7.5pt; color: #666; text-align: center; }
   }
 
-  .print-header { display: none; }
-
   /* ---------- Mobile ---------- */
-  @media (max-width: 720px) {
+  @media screen and (max-width: 720px) {
     .blob { filter: blur(50px); }
 
     header, .toolbar, .legend, main, .file-status { padding-left: 14px; padding-right: 14px; }
@@ -790,7 +814,8 @@
     <div class="toolbar-group-label">קובץ</div>
     <div class="toolbar-group-controls">
       <button id="printBtn">🖨️ הדפסה / PDF</button>
-      <button id="switchFileBtn">📂 החלפת קובץ</button>
+      <button id="saveAsBtn" title="שומר את כל הנתונים שעל המסך לקובץ חדש במחשב">💾 שמירה כקובץ חדש</button>
+      <button id="switchFileBtn" title="סוגר את הנתונים שעל המסך ופותח במקומם קובץ אחר">📂 פתיחת קובץ אחר</button>
       <button id="startOverBtn" title="חזרה למסך הפתיחה">🔄 התחל מהתחלה</button>
     </div>
   </div>
@@ -842,10 +867,6 @@
   <!-- Main table -->
   <div id="appContent" style="display:none;">
     <footer class="summary" id="summaryTop"></footer>
-    <div class="print-header">
-      <h2 id="printTitle">VitalCheck — דוח תקפים</h2>
-      <p id="printDate"></p>
-    </div>
     <table id="dataTable">
       <thead>
         <tr>
@@ -864,6 +885,9 @@
     <footer class="summary" id="summary"></footer>
   </div>
 </main>
+
+<!-- Print-only report, built by buildPrintReport() just before printing -->
+<div id="printReport"></div>
 
 <div class="credit">
   פותח על ידי <strong>ד"ר אורי דביר</strong> · להארות והערות:
@@ -1042,7 +1066,7 @@ function refreshModalCategorySelect(selected) {
   modalNewCategory.value = '';
 }
 
-function render() {
+function getVisibleItems() {
   const q = searchInput.value.trim().toLowerCase();
   const catF = categoryFilter.value;
   const statF = statusFilter.value;
@@ -1073,7 +1097,11 @@ function render() {
     if (va > vb) return sortAsc ? 1 : -1;
     return 0;
   });
+  return filtered;
+}
 
+function render() {
+  const filtered = getVisibleItems();
   tableBody.innerHTML = '';
   emptyState.style.display = filtered.length === 0 ? 'block' : 'none';
 
@@ -1410,7 +1438,10 @@ renameCatInput.addEventListener('keydown', e => {
 
 /* ---------- Start over ---------- */
 document.getElementById('startOverBtn').onclick = async () => {
-  if (!confirm('לחזור למסך הפתיחה?\n\nהנתונים שלך שמורים בקובץ — שום דבר לא יימחק.\nתוכל לפתוח את הקובץ שוב בכל רגע.')) return;
+  if (hasUnsavedData()) {
+    if (!confirmDiscardUnsaved('לחזור למסך הפתיחה')) return;
+  } else if (!confirm('לחזור למסך הפתיחה?\n\nהנתונים שלך שמורים בקובץ — שום דבר לא יימחק.\nתוכל לפתוח את הקובץ שוב בכל רגע.')) return;
+  allowUnload = true;
   try {
     const db = await openDB();
     db.transaction('handles', 'readwrite').objectStore('handles').delete('dataFile');
@@ -1419,10 +1450,72 @@ document.getElementById('startOverBtn').onclick = async () => {
 };
 
 /* ---------- Print ---------- */
+function buildPrintReport() {
+  const list = getVisibleItems();
+  const now = new Date();
+  const counts = { good: 0, ok: 0, warn: 0, danger: 0, none: 0 };
+  list.forEach(i => counts[getStatus(i.expiry)]++);
+
+  const filters = [];
+  if (searchInput.value.trim()) filters.push(`חיפוש: "${searchInput.value.trim()}"`);
+  if (categoryFilter.value) filters.push(`קטגוריה: ${categoryFilter.value}`);
+  if (statusFilter.value) filters.push(`סטטוס: ${statusFilter.options[statusFilter.selectedIndex].text}`);
+
+  const fileName = fileHandle ? fileHandle.name : (currentFileName || 'לא שמור בקובץ');
+  const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  const rows = list.map((item, idx) => {
+    const st = getStatus(item.expiry);
+    return `<tr class="${rowClass(st)}">
+      <td class="num">${idx + 1}</td>
+      <td>${esc(item.name)}</td>
+      <td class="num">${item.quantity == null ? '' : item.quantity}</td>
+      <td class="nowrap">${formatExpiry(item.expiry)}</td>
+      <td class="st">${statusLabel(st, item.expiry)}</td>
+      <td>${esc(item.category)}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('printReport').innerHTML = `
+    <div class="pr-head">
+      <h1>${esc(customTitleText)} — דוח תקפים</h1>
+      <div class="pr-brand">VitalCheck</div>
+    </div>
+    <div class="pr-meta">
+      <b>הופק:</b> ${now.toLocaleDateString('he-IL')} ${now.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
+      &nbsp;·&nbsp; <b>קובץ:</b> ${esc(fileName)}
+      &nbsp;·&nbsp; <b>פריטים בדוח:</b> ${list.length}${list.length !== items.length ? ` מתוך ${items.length}` : ''}
+      ${filters.length ? `<br><b>סינון פעיל:</b> ${esc(filters.join(' · '))}` : ''}
+    </div>
+    <div class="pr-summary">
+      <span>🔴 פג / קרוב: <b>${counts.danger}</b></span>
+      <span>🟠 1-2 חודשים: <b>${counts.warn}</b></span>
+      <span>🟡 מתחת ל-3: <b>${counts.ok}</b></span>
+      <span>🟢 תקף: <b>${counts.good}</b></span>
+      <span>⚪ ללא תוקף: <b>${counts.none}</b></span>
+    </div>
+    <table class="pr-table">
+      <thead><tr>
+        <th class="num">#</th><th>שם הפריט</th><th class="num">כמות</th>
+        <th>תוקף</th><th>מצב</th><th>קטגוריה</th>
+      </tr></thead>
+      <tbody>${rows || '<tr><td colspan="6">אין פריטים</td></tr>'}</tbody>
+    </table>
+    <div class="pr-sign">
+      <span>נבדק על ידי</span><span>חתימה</span><span>תאריך בדיקה</span>
+    </div>
+    <div class="pr-foot">הופק באמצעות VitalCheck · ד"ר אורי דביר · VitalCheck@DrDevir.com</div>
+  `;
+}
+
 document.getElementById('printBtn').onclick = () => {
-  document.getElementById('printTitle').textContent = `VitalCheck — ${customTitleText}`;
-  document.getElementById('printDate').textContent = 'נכון לתאריך: ' + new Date().toLocaleDateString('he-IL');
+  buildPrintReport();
+  // The browser uses the page title as the suggested PDF file name
+  const oldTitle = document.title;
+  const d = new Date();
+  document.title = `VitalCheck - ${customTitleText} - ${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()}`;
   window.print();
+  document.title = oldTitle;
 };
 
 /* ---------- File handling ---------- */
@@ -1525,12 +1618,78 @@ function backupToLocalStorage() {
   } catch(e) {}
 }
 
+/* Data that exists only on screen (restored from backup, or a browser
+   that can't write files) and would be lost by opening another file. */
+let currentFileName = null;
+let allowUnload = false;
+function hasUnsavedData() {
+  return !fileHandle && items.length > 0 && appContent.style.display !== 'none';
+}
+
+function confirmDiscardUnsaved(action) {
+  return confirm(
+    `⚠️ שים לב: הנתונים שעל המסך (${items.length} פריטים) עדיין לא שמורים בשום קובץ!\n\n` +
+    `אם תמשיך ל${action}, הם יימחקו מהמסך.\n\n` +
+    `כדי לשמור אותם קודם: לחץ "ביטול", ואז "💾 שמירה כקובץ חדש".\n\n` +
+    `להמשיך בכל זאת ולאבד את הנתונים?`
+  );
+}
+
+function showUnsavedStatus(prefix) {
+  fileStatus.innerHTML = '';
+  fileStatus.className = 'file-status error';
+  const txt = document.createElement('span');
+  txt.textContent = `⚠️ ${prefix} — הנתונים עדיין לא שמורים בקובץ! `;
+  const btn = document.createElement('button');
+  btn.className = 'primary';
+  btn.textContent = hasFS ? '💾 שמור עכשיו כקובץ חדש' : '💾 הורד קובץ גיבוי';
+  btn.style.marginInlineStart = '8px';
+  btn.onclick = saveAsNewFile;
+  fileStatus.append(txt, btn);
+}
+
+function showConnectedStatus(name, prefix = 'מחובר לקובץ') {
+  fileStatus.textContent = `✅ ${prefix}: "${name}" — כל שינוי נשמר בו אוטומטית, אין צורך ללחוץ על שמירה`;
+  fileStatus.className = 'file-status connected';
+}
+
+async function saveAsNewFile() {
+  const safeTitle = customTitleText.replace(/[\\/:*?"<>|]/g, '').trim() || 'data';
+  const suggestedName = `vitalcheck-${safeTitle}.json`;
+  if (!hasFS) {
+    // Browsers without file access: download a copy instead
+    const blob = new Blob([serializeData()], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = suggestedName;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    return;
+  }
+  try {
+    const handle = await window.showSaveFilePicker({
+      suggestedName,
+      types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
+    });
+    await writeToFile(handle, serializeData());
+    fileHandle = handle;
+    await saveHandleToDB(handle);
+    showConnectedStatus(handle.name, 'נשמר ומחובר לקובץ');
+  } catch (err) {
+    if (err.name !== 'AbortError') alert('שגיאה בשמירת הקובץ: ' + err.message);
+  }
+}
+
+window.addEventListener('beforeunload', e => {
+  if (!allowUnload && hasUnsavedData()) { e.preventDefault(); e.returnValue = ''; }
+});
+
 async function autoSave() {
   backupToLocalStorage();
   if (!fileHandle) return;
   try {
     await writeToFile(fileHandle, serializeData());
-    fileStatus.textContent = `✅ נשמר אוטומטית ב-${new Date().toLocaleTimeString('he-IL')}`;
+    fileStatus.textContent = `✅ נשמר אוטומטית בקובץ "${fileHandle.name}" בשעה ${new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })} — אין צורך ללחוץ על שמירה`;
     fileStatus.className = 'file-status connected';
   } catch(err) {
     fileStatus.textContent = `⚠️ שגיאה בשמירה: ${err.message}`;
@@ -1570,8 +1729,7 @@ async function loadFromHandle(handle, canPrompt = true) {
   parseData(text);
 
   fileHandle = handle;
-  fileStatus.textContent = `✅ מחובר: ${file.name} — שינויים נשמרים אוטומטית`;
-  fileStatus.className = 'file-status connected';
+  showConnectedStatus(file.name);
   showApp();
   return true;
 }
@@ -1603,8 +1761,7 @@ document.getElementById('newFileInfoContinue').onclick = async () => {
     await writeToFile(handle, serializeData());
     fileHandle = handle;
     await saveHandleToDB(handle);
-    fileStatus.textContent = `✅ נוצר קובץ חדש: ${handle.name} — אפשר להתחיל להוסיף פריטים`;
-    fileStatus.className = 'file-status connected';
+    showConnectedStatus(handle.name, 'נוצר קובץ חדש');
     showApp();
   } catch(err) {
     if (err.name !== 'AbortError') alert('שגיאה ביצירת הקובץ: ' + err.message);
@@ -1628,9 +1785,9 @@ async function openExisting() {
           return;
         }
         fileHandle = null;
-        fileStatus.textContent = `נטען: ${file.name} — הדפדפן לא תומך בשמירה אוטומטית לקובץ`;
-        fileStatus.className = 'file-status connected';
+        currentFileName = file.name;
         showApp();
+        showUnsavedStatus(`נטען "${file.name}", אבל הדפדפן הזה לא יודע לשמור אוטומטית. אחרי שינויים יש להוריד קובץ מעודכן`);
       };
       input.click();
       return;
@@ -1650,7 +1807,11 @@ async function openExisting() {
 }
 
 document.getElementById('openExistingBtn').onclick = openExisting;
-document.getElementById('switchFileBtn').onclick = openExisting;
+document.getElementById('switchFileBtn').onclick = () => {
+  if (hasUnsavedData() && !confirmDiscardUnsaved('פתוח קובץ אחר')) return;
+  openExisting();
+};
+document.getElementById('saveAsBtn').onclick = saveAsNewFile;
 
 /* Restore from backup */
 const restoreBtn = document.getElementById('restoreBtn');
@@ -1663,9 +1824,9 @@ document.getElementById('restoreBtn').onclick = async () => {
     alert('הקובץ שנטען אינו תקין או פגום. אנא בחר קובץ אחר או צור קובץ חדש.');
     return;
   }
-  fileStatus.textContent = '♻️ שוחזר מגיבוי מקומי — מומלץ ליצור קובץ חדש כדי לשמור (לחץ "החלפת קובץ")';
-  fileStatus.className = 'file-status connected';
+  fileHandle = null;
   showApp();
+  showUnsavedStatus('♻️ הנתונים שוחזרו מהגיבוי');
 };
 
 /* ---------- Startup ---------- */
