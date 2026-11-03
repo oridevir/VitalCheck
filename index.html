@@ -593,9 +593,14 @@
     .pr-table tbody tr { background: #fff !important; }
     .pr-table tbody tr:nth-child(even) td:not(.st) { background: #f7f7f7; }
     .pr-table tr.pr-group { break-after: avoid; page-break-after: avoid; }
-    .pr-table tr.pr-group td { background: #3a3a3a !important; color: #fff; font-weight: 700;
-      font-size: 11pt; padding: 4px 8px; border-color: #3a3a3a; }
-    .pr-table tr.pr-group td small { font-weight: 400; opacity: 0.85; }
+    .pr-table tr.pr-group td { font-weight: 700; font-size: 11pt; padding: 5px 8px; color: #222;
+      border-top: 1.5px solid #555; border-right: 8px solid #999; background: #f0f0f0 !important; }
+    .pr-table tr.pr-group td small { font-weight: 400; color: #444; }
+    .pr-table tr.pr-group.g-danger td { background: #fbe0dc !important; border-right-color: #d64535; color: #6b1c12; }
+    .pr-table tr.pr-group.g-warn td { background: #fde9d3 !important; border-right-color: #e8891a; color: #6b3a0c; }
+    .pr-table tr.pr-group.g-ok td { background: #fbf3cc !important; border-right-color: #e0b400; color: #5c4a00; }
+    .pr-table tr.pr-group.g-good td { background: #dff3e7 !important; border-right-color: #27ae60; color: #1d4a38; }
+    .pr-table tr.pr-group.g-none td { background: #eeeeee !important; border-right-color: #aaa; color: #444; }
     .pr-table tr.row-danger td:not(.st), .pr-table tr.row-warn td:not(.st) { font-weight: 700; }
     .pr-foot { margin-top: 8px; font-size: 8.5pt; color: #666; text-align: center; }
   }
@@ -1501,7 +1506,7 @@ function buildPrintReport() {
   const rows = groups.map(([key, title]) => {
     const groupItems = list.filter(i => getStatus(i.expiry) === key);
     if (!groupItems.length) return '';
-    return `<tr class="pr-group"><td colspan="6">${title} <small>(${groupItems.length} פריטים)</small></td></tr>` +
+    return `<tr class="pr-group g-${key}"><td colspan="6">${title} <small>(${groupItems.length} פריטים)</small></td></tr>` +
       groupItems.map(item => printRow(item, ++n)).join('');
   }).join('');
 
