@@ -1851,11 +1851,11 @@ async function getRecents() {
     const db = await openDB();
     const list = await new Promise(resolve => {
       const req = db.transaction('handles', 'readonly').objectStore('handles').get('recentFiles');
-      req.onsuccess = () => resolve(Array.isArray(req.result) ? req.result : []);
+      req.onsuccess = () => resolve(Array.isArray(req.result) ? req.result : null);
       req.onerror = () => resolve([]);
     });
-    if (list.length) return list;
-    // First run with this feature: start from the single remembered file
+    if (list) return list;
+    // First run with this feature (no list saved yet): start from the single remembered file
     const last = await getHandleFromDB();
     return last ? [{ handle: last, title: last.name.replace(/\.json$/i, ''), openedAt: null }] : [];
   } catch (e) { return []; }
@@ -1887,6 +1887,14 @@ async function removeRecent(handle) {
   const rest = [];
   for (const r of list) if (!(await sameFile(r.handle, handle))) rest.push(r);
   await saveRecents(rest);
+  // Also forget it as the "last opened file", so it doesn't come back on the next visit
+  const last = await getHandleFromDB();
+  if (last && await sameFile(last, handle)) {
+    try {
+      const db = await openDB();
+      db.transaction('handles', 'readwrite').objectStore('handles').delete('dataFile');
+    } catch (e) {}
+  }
   renderRecents();
 }
 
