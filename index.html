@@ -607,6 +607,18 @@
   }
   .about-body button.about-close:hover { background: var(--navy-light); }
 
+  /* ---------- Send report window ---------- */
+  .send-opts { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+  .modal .send-opt {
+    display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px; text-align: right;
+    border: 1px solid #d4dfec; border-radius: 12px; background: #fff; cursor: pointer; font: inherit; color: inherit;
+  }
+  .modal .send-opt:hover, .modal .send-opt:focus-visible { border-color: var(--teal); background: #f3fbf8; }
+  .modal .send-opt[disabled] { opacity: .6; cursor: progress; }
+  .send-opt .ic { font-size: 22px; }
+  .send-opt .t1 { font-weight: 700; color: var(--navy); font-size: 15px; }
+  .send-opt .t2 { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+
   /* ---------- Recent files ---------- */
   .recent-box { margin: 0 0 18px; text-align: right; }
   .recent-title { font-size: 13px; font-weight: 700; color: var(--navy); margin: 0 0 8px; }
@@ -862,6 +874,7 @@
         <div class="tb-menu" id="fileMenu">
           <div id="fileMenuRecents"></div>
           <button type="button" id="printBtn">🖨️ הדפסה / PDF</button>
+          <button type="button" id="sendReportBtn">📤 שליחת דוח</button>
           <hr>
           <button type="button" id="saveAsBtn">💾 שמירה כקובץ חדש</button>
           <button type="button" id="switchFileBtn">📂 פתיחת קובץ אחר</button>
@@ -1072,6 +1085,23 @@
       <p class="bless">בריאות שלמה!</p>
       <button type="button" class="about-close" id="aboutClose">סגירה</button>
     </div>
+  </div>
+</div>
+
+<!-- Send report window -->
+<div class="modal-overlay" id="sendModalOverlay" style="display:none;">
+  <div class="modal modal--center" style="width:440px" role="dialog" aria-modal="true" aria-labelledby="sendTitle">
+    <h2 id="sendTitle">📤 שליחת דוח</h2>
+    <p id="sendIntro"></p>
+    <div class="send-opts">
+      <button type="button" class="send-opt" id="sendGmail"><span class="ic" aria-hidden="true">✉️</span>
+        <span><span class="t1">פתיחה ב-Gmail</span><br><span class="t2">הקובץ יורד למחשב, ונפתחת טיוטה מוכנה ב-Gmail — גוררים אליה את הקובץ ובוחרים נמען</span></span></button>
+      <button type="button" class="send-opt" id="sendShare" style="display:none;"><span class="ic" aria-hidden="true">📤</span>
+        <span><span class="t1">שיתוף</span><br><span class="t2">Outlook, וואטסאפ ותוכנות אחרות — הקובץ כבר מצורף</span></span></button>
+      <button type="button" class="send-opt" id="sendCopy"><span class="ic" aria-hidden="true">📋</span>
+        <span><span class="t1">העתקת סיכום</span><br><span class="t2">רשימה קצרה של מה שפג ומה שעומד לפוג, להדבקה בוואטסאפ או במייל</span></span></button>
+    </div>
+    <div class="modal-actions"><button type="button" id="sendClose">סגירה</button></div>
   </div>
 </div>
 
@@ -2509,6 +2539,163 @@ function clearFieldErrors(container) {
   container.querySelectorAll('[aria-invalid="true"]').forEach(clearFieldError);
 }
 
+/* ---------- Send report (PDF + short summary) ----------
+   Everything happens in the browser: the PDF is built here (report-pdf.js + vendor/ libraries,
+   loaded only when needed) and sent from the user's own mail / share apps. Nothing goes to a server. */
+const sendModalOverlay = document.getElementById('sendModalOverlay');
+const MONTH_NAMES = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+let pdfLibsPromise = null;
+
+function loadPdfLibs() {
+  if (!pdfLibsPromise) {
+    // Self-contained builds that define window.PDFLib and window.fontkit
+    const script = src => new Promise((resolve, reject) => {
+      const el = document.createElement('script');
+      el.src = src; el.onload = resolve; el.onerror = () => reject(new Error('load ' + src));
+      document.head.appendChild(el);
+    });
+    const font = f => fetch(f).then(r => { if (!r.ok) throw new Error('font ' + f); return r.arrayBuffer(); });
+    pdfLibsPromise = Promise.all([
+      window.PDFLib ? null : script('vendor/pdf-lib.min.js'),
+      window.fontkit ? null : script('vendor/fontkit.umd.min.js'),
+      import('./report-pdf.js'),
+      font('fonts/LiberationSans-Regular.ttf'),
+      font('fonts/LiberationSans-Bold.ttf'),
+    ]).then(([, , rep, reg, bold]) => ({ lib: window.PDFLib, fontkit: window.fontkit, rep, reg: new Uint8Array(reg), bold: new Uint8Array(bold) }))
+      .catch(e => { pdfLibsPromise = null; throw e; });
+  }
+  return pdfLibsPromise;
+}
+
+function reportNow() { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() + 1 }; }
+function reportSubject() { const n = reportNow(); return `דוח תקפים — ${customTitleText} — ${MONTH_NAMES[n.m - 1]} ${n.y}`; }
+function reportFileName() {
+  const n = reportNow();
+  const safe = customTitleText.replace(/[\\/:*?"<>|]/g, '').trim() || 'VitalCheck';
+  return `דוח תקפים - ${safe} - ${String(n.m).padStart(2, '0')}.${n.y}.pdf`;
+}
+
+// Short text: only what has expired or expires this month / next month.
+// Items without an expiry date are left out. RLM marks keep names with numbers
+// ("מחט ירוקה 21G") from mixing with the date in mail and WhatsApp.
+function buildSummaryText(withAttachmentNote) {
+  const RLM = '\u200f';
+  const now = reportNow();
+  const line = it => {
+    const [y, m] = it.expiry.split('-');
+    return `• ${it.name}${RLM} — ${RLM}${m}.${y.slice(2)}${it.quantity ? `${RLM} · כמות ${it.quantity}` : ''}${RLM}`;
+  };
+  const dated = items.filter(i => i.expiry).sort((a, b) => a.expiry.localeCompare(b.expiry) || a.name.localeCompare(b.name, 'he'));
+  const expired = dated.filter(i => monthsUntil(i.expiry) < 0);
+  const soon = dated.filter(i => { const d = monthsUntil(i.expiry); return d >= 0 && d <= 1; });
+  const d = new Date();
+  const out = [`📋 דוח תקפים — ${customTitleText}`, `נכון ל-${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()}`, ''];
+  if (!expired.length && !soon.length) {
+    out.push('✅ אין פריטים שפג תוקפם או שיפוגו עד סוף החודש הבא.', '');
+  } else {
+    if (expired.length) out.push(`🔴 פג תוקף (${expired.length}):`, ...expired.map(line), '');
+    if (soon.length) out.push(`🟠 יפוג החודש או בחודש הבא (${soon.length}):`, ...soon.map(line), '');
+  }
+  if (withAttachmentNote) out.push(`📎 הדוח המלא של כל ${items.length} הפריטים בתיק מצורף כקובץ PDF.`, '');
+  out.push(`סה"כ ${items.length} פריטים בתיק · הופק ב-VitalCheck`);
+  return out.join('\n');
+}
+
+async function buildReportFile() {
+  const { lib, fontkit, rep, reg, bold } = await loadPdfLibs();
+  const d = new Date();
+  const generatedAt = `${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()} ${d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}`;
+  const plain = items.map(i => ({ name: i.name, category: i.category, expiry: i.expiry || null, quantity: i.quantity ?? null }));
+  const bytes = await rep.buildReportPdf({ PDFDocument: lib.PDFDocument, rgb: lib.rgb, fontkit,
+    regularBytes: reg, boldBytes: bold, title: customTitleText, items: plain, now: reportNow(), generatedAt });
+  return new File([bytes], reportFileName(), { type: 'application/pdf' });
+}
+
+function downloadFile(file) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(file);
+  a.download = file.name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+function canShareFiles() {
+  try {
+    return !!(navigator.canShare && navigator.canShare({ files: [new File(['x'], 'x.pdf', { type: 'application/pdf' })] }));
+  } catch (e) { return false; }
+}
+
+function setSendBusy(btn, busy) {
+  sendModalOverlay.querySelectorAll('.send-opt').forEach(b => { b.disabled = busy; });
+  if (busy) btn.dataset.label = btn.querySelector('.t1').textContent;
+  btn.querySelector('.t1').textContent = busy ? 'מכין את הדוח…' : btn.dataset.label;
+}
+
+function closeSendModal() { sendModalOverlay.style.display = 'none'; }
+
+document.getElementById('sendReportBtn').onclick = () => {
+  document.getElementById('sendIntro').textContent =
+    `קובץ PDF מלא של כל ${items.length} הפריטים בתיק, ובגוף ההודעה — מה שפג תוקפו ומה שיפוג בחודשיים הקרובים.`;
+  document.getElementById('sendShare').style.display = canShareFiles() ? 'flex' : 'none';
+  sendModalOverlay.style.display = 'flex';
+  document.getElementById('sendGmail').focus();
+  loadPdfLibs().catch(() => {});   // start loading now, so the click itself is quick
+};
+document.getElementById('sendClose').onclick = closeSendModal;
+closeOnBackdrop(sendModalOverlay, closeSendModal);
+
+document.getElementById('sendGmail').onclick = async e => {
+  const btn = e.currentTarget;
+  // Open the tab right away (inside the click), so the browser doesn't block it as a pop-up
+  const tab = window.open('about:blank', '_blank');
+  setSendBusy(btn, true);
+  try {
+    const file = await buildReportFile();
+    downloadFile(file);
+    const url = 'https://mail.google.com/mail/?view=cm&fs=1&su=' + encodeURIComponent(reportSubject()) +
+      '&body=' + encodeURIComponent(buildSummaryText(true));
+    if (tab) tab.location.href = url; else window.open(url, '_blank');
+    closeSendModal();
+    showMessage('הקובץ ירד למחשב', `הקובץ "${file.name}" נשמר בתיקיית ההורדות. בטיוטה שנפתחה ב-Gmail גוררים אותו לחלון המייל (או לוחצים על סמל האטב ובוחרים אותו), ובוחרים למי לשלוח.`);
+  } catch (err) {
+    if (tab) tab.close();
+    showMessage('הדוח לא הופק', 'משהו השתבש ביצירת קובץ ה-PDF. בדוק את החיבור לאינטרנט ונסה שוב. ' + (err && err.message ? `(${err.message})` : ''));
+  } finally { setSendBusy(btn, false); }
+};
+
+document.getElementById('sendShare').onclick = async e => {
+  const btn = e.currentTarget;
+  setSendBusy(btn, true);
+  try {
+    const file = await buildReportFile();
+    await navigator.share({ files: [file], title: reportSubject(), text: buildSummaryText(true) });
+    closeSendModal();
+  } catch (err) {
+    if (err && err.name === 'AbortError') return;          // the user closed the share window
+    if (err && err.name === 'NotAllowedError') {
+      showMessage('נסה שוב', 'הדוח מוכן. לחץ שוב על "שיתוף" כדי לפתוח את חלון השיתוף.');
+    } else {
+      showMessage('השיתוף לא הצליח', 'אפשר לבחור "פתיחה ב-Gmail" במקום. ' + (err && err.message ? `(${err.message})` : ''));
+    }
+  } finally { setSendBusy(btn, false); }
+};
+
+document.getElementById('sendCopy').onclick = async () => {
+  const text = buildSummaryText(false);
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch (e) {
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch (e2) {}
+    ta.remove();
+  }
+  closeSendModal();
+  showMessage('הסיכום הועתק', 'אפשר להדביק אותו עכשיו בוואטסאפ או במייל.');
+};
+
 /* ---------- About window ---------- */
 const aboutOverlay = document.getElementById('aboutOverlay');
 const aboutBtn = document.getElementById('aboutBtn');
@@ -2530,6 +2717,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     if (dialogResolve) { closeDialog(null); return; }
     if (aboutOverlay.style.display !== 'none') { closeAbout(); return; }
+    if (sendModalOverlay.style.display !== 'none') { closeSendModal(); return; }
     if (document.querySelector('.tb-menu.open')) { closeMenus(); return; }
     document.querySelectorAll('.modal-overlay').forEach(m => {
       if (m.style.display !== 'none') m.style.display = 'none';
