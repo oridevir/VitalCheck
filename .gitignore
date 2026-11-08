@@ -13,3 +13,6 @@ desktop.ini
 .idea/
 *.swp
 .claude/settings.local.json
+
+# ארכיון מקומי (קבצי מקור ישנים) - לא לעלות לגיטהאב
+archive/
