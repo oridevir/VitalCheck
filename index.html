@@ -35,7 +35,7 @@
     --bg: #f0f6f4;
     --panel: #ffffff;
     --ink: #1c2733;
-    --muted: #6b7a8c;
+    --muted: #5b6878; /* נובמבר 2026: היה #6b7a8c — 4.38 על לבן, מתחת לרף 4.5; עכשיו 5.6 */
     --line: #dde5ee;
     --ok: #fdf6c9;
     --ok-border: #e8d878;
@@ -514,7 +514,9 @@
   }
 
   .credit strong { font-weight: 700; }
-  .credit a { color: var(--teal); text-decoration: none; }
+  .credit a { color: var(--teal); text-decoration: underline; text-underline-offset: 2px; } /* קו תחתון — קישור בתוך טקסט חייב להיות מובחן לא רק בצבע */
+  .a11y-statement { white-space: nowrap; }
+  .a11y-sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
   .credit a:hover { text-decoration: underline; color: #6be0b8; }
 
   /* ---------- Modal ---------- */
@@ -987,6 +989,7 @@
 <div class="credit">
   פותח על ידי <strong>ד"ר אורי דביר</strong> · להארות והערות:
   <a href="mailto:VitalCheck@DrDevir.com">VitalCheck@DrDevir.com</a>
+  · <a href="https://drdevir.com/accessibility-statement.html" target="_blank" rel="noopener" class="a11y-statement">הצהרת נגישות<span class="a11y-sr"> (נפתח בחלון חדש)</span></a>
 </div>
 
 <!-- Item modal -->
@@ -1091,7 +1094,7 @@
       </ol>
       <p>אפשר לנהל כמה תיקים, לעבור ביניהם בלחיצה, ולהדפיס דוח מסודר או לשמור אותו כ־PDF.<br>האפליקציה פועלת במחשב, בדפדפן כרום או אדג׳.</p>
       <hr>
-      <p>האפליקציה פותחה ע״י <b>ד״ר אורי דביר</b>.<br>כלים רפואיים דיגיטליים נוספים, למטופלים ולקהילה הרפואית, זמינים באתר <a href="https://drdevir.com" target="_blank" rel="noopener" dir="ltr">DrDevir.com</a>.</p>
+      <p>האפליקציה פותחה ע״י <b>ד״ר אורי דביר</b>.<br>כלים רפואיים דיגיטליים נוספים, למטופלים ולקהילה הרפואית, זמינים באתר <a href="https://drdevir.com" target="_blank" rel="noopener" dir="ltr">DrDevir.com<span class="a11y-sr"> (נפתח בחלון חדש)</span></a>.</p>
       <p>לפניות, הצעות והערות: <a href="mailto:VitalCheck@DrDevir.com" dir="ltr">VitalCheck@DrDevir.com</a></p>
       <hr>
       <p class="bless">בריאות שלמה!</p>
