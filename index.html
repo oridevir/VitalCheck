@@ -2350,7 +2350,7 @@ async function openExisting() {
     if (!hasFS) {
       const input = document.createElement('input');
       input.type = 'file';
-      input.accept = '.json';
+      // בלי accept: ספקי קבצים בטלפון (כמו דרופבוקס) לא תמיד מסמנים קובץ json כ-JSON ואז הוא מואפר. התוכן נבדק בטעינה.
       input.onchange = async () => {
         const file = input.files[0];
         const text = await file.text();
