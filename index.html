@@ -2048,6 +2048,19 @@ function syncCategoriesFromItems() {
   if (!categories.includes('כללי')) categories.unshift('כללי');
 }
 
+// Stored format is "YYYY-MM". Also accepts "MM/YY", "MM/YYYY" and "YYYY-MM-DD"
+// (files made outside the app); anything else counts as no expiry.
+function normalizeExpiry(v) {
+  if (typeof v !== 'string') return null;
+  const t = v.trim();
+  let m = t.match(/^(\d{4})-(\d{1,2})(?:-\d{1,2})?$/);
+  if (m) {
+    const mon = parseInt(m[2], 10);
+    return mon >= 1 && mon <= 12 ? `${m[1]}-${String(mon).padStart(2, '0')}` : null;
+  }
+  return parseExpiryInput(t);
+}
+
 // checkOnly: only validate (throws on a bad file) without replacing the open data
 function parseData(text, checkOnly = false) {
   let parsed;
@@ -2085,9 +2098,20 @@ function parseData(text, checkOnly = false) {
       ...it,
       name: typeof it.name === 'string' && it.name.trim() ? it.name : 'ללא שם',
       category: typeof it.category === 'string' && it.category.trim() ? it.category : 'כללי',
-      quantity: Number.isInteger(it.quantity) && it.quantity > 0 ? it.quantity : null
+      quantity: Number.isInteger(it.quantity) && it.quantity > 0 ? it.quantity : null,
+      expiry: normalizeExpiry(it.expiry)
     }));
   if (checkOnly) return;
+
+  // Every item needs its own id: edit and delete find items by id. Files made
+  // outside the app may have none (or duplicates) — give those a new one.
+  const idNum = id => { const m = typeof id === 'string' && id.match(/^item_(\d+)$/); return m ? parseInt(m[1], 10) : 0; };
+  let maxNum = validItems.reduce((max, it) => Math.max(max, idNum(it.id)), 0);
+  const seen = new Set();
+  validItems.forEach(it => {
+    if (typeof it.id !== 'string' || !it.id || seen.has(it.id)) it.id = `item_${String(++maxNum).padStart(3, '0')}`;
+    seen.add(it.id);
+  });
 
   items = validItems;
   categories = Array.isArray(rawCategories) ? rawCategories : ['כללי'];
@@ -2226,8 +2250,10 @@ async function saveAsNewFile() {
       suggestedName,
       types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
     });
-    await writeToFile(handle, serializeData());
+    const text = serializeData();
+    await writeToFile(handle, text);
     fileHandle = handle;
+    lastKnownText = text;
     await saveHandleToDB(handle);
     addRecent(handle);
     showConnectedStatus(handle.name, 'נשמר ומחובר לקובץ');
@@ -2240,18 +2266,96 @@ window.addEventListener('beforeunload', e => {
   if (!allowUnload && hasUnsavedData()) { e.preventDefault(); e.returnValue = ''; }
 });
 
-async function autoSave() {
+/* The file's content as last read or written by this window. Before each save
+   the file is read again: if it differs, it was changed meanwhile from another
+   device (e.g. the phone), and saving now would erase that change. */
+let lastKnownText = null;
+let saveChain = Promise.resolve();
+let conflictOpen = false;
+
+async function readFileText(handle) {
+  return await (await handle.getFile()).text();
+}
+
+// Saves run one after another, so a quick second change can't be overtaken by an older one
+function autoSave() {
   backupToLocalStorage();
-  if (!fileHandle) return;
+  if (!fileHandle) return Promise.resolve();
+  saveChain = saveChain.then(doSave, doSave);
+  return saveChain;
+}
+
+async function doSave() {
+  const handle = fileHandle;
+  if (!handle || conflictOpen) return;
   try {
-    await writeToFile(fileHandle, serializeData());
-    fileStatus.textContent = `✅ נשמר אוטומטית בקובץ "${fileHandle.name}" בשעה ${new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })} — אין צורך ללחוץ על שמירה`;
+    if (lastKnownText !== null) {
+      let current = null;
+      try { current = await readFileText(handle); } catch (e) { /* unreadable now: the write below reports it */ }
+      if (current !== null && current !== lastKnownText) {
+        await handleConflict(handle, current);
+        return;
+      }
+    }
+    const text = serializeData();
+    await writeToFile(handle, text);
+    lastKnownText = text;
+    fileStatus.textContent = `✅ נשמר אוטומטית בקובץ "${handle.name}" בשעה ${new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })} — אין צורך ללחוץ על שמירה`;
     fileStatus.className = 'file-status connected';
   } catch(err) {
     fileStatus.textContent = `⚠️ שגיאה בשמירה: ${err.message}`;
     fileStatus.className = 'file-status error';
   }
 }
+
+async function handleConflict(handle, current) {
+  conflictOpen = true;
+  const choice = await showDialog({
+    title: '⚠️ הקובץ השתנה ממכשיר אחר',
+    html: `מאז שהקובץ <strong>"${escapeHtml(handle.name)}"</strong> נפתח כאן, הוא עודכן במקום אחר (למשל בטלפון או במחשב אחר).<br>` +
+      'אם תשמור עכשיו, העדכון ההוא יימחק.',
+    stack: true,
+    buttons: [
+      { label: '🔄 טען את הגרסה העדכנית מהקובץ', value: 'reload', kind: 'primary' },
+      { label: 'שמור בכל זאת (ימחק את העדכון מהמכשיר האחר)', value: 'overwrite', kind: 'danger' }
+    ]
+  });
+  conflictOpen = false;
+  if (choice === 'overwrite') {
+    lastKnownText = current;
+    return doSave();
+  }
+  // Reload (also on Esc): what was on screen stays in the local backups
+  forceNewBackup = true;
+  backupToLocalStorage();
+  try {
+    parseData(current);
+    lastKnownText = current;
+    render();
+    showConnectedStatus(handle.name, 'נטענה הגרסה העדכנית מהקובץ');
+    showMessage('נטענה הגרסה העדכנית', 'השינוי האחרון שעשית כאן לא נשמר. אם צריך, בצע אותו שוב. מה שהיה על המסך שמור גם ב"שחזור מגיבוי" במסך הפתיחה.');
+  } catch (e) {
+    showMessage('הקובץ פגום', 'הקובץ עודכן במקום אחר אבל התוכן שלו לא תקין. לא שמרתי עליו כלום. כדאי לבדוק אותו או לשחזר גרסה קודמת בדרופבוקס.');
+  }
+}
+
+// Back to this tab: if the file was updated elsewhere meanwhile, show the new version
+// right away (everything here is already saved, so nothing is lost).
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible' || !fileHandle || lastKnownText === null) return;
+  const handle = fileHandle;
+  saveChain = saveChain.then(async () => {
+    if (handle !== fileHandle || conflictOpen || modalOverlay.style.display !== 'none') return;
+    let current;
+    try { current = await readFileText(handle); } catch (e) { return; }
+    if (current === lastKnownText) return;
+    try { parseData(current, true); } catch (e) { return; }  // bad content: leave it to the next save
+    parseData(current);
+    lastKnownText = current;
+    render();
+    showConnectedStatus(handle.name, 'הקובץ עודכן ממכשיר אחר ונטען מחדש');
+  });
+});
 
 function showApp() {
   document.body.classList.add('app-open');
@@ -2285,6 +2389,7 @@ async function loadFromHandle(handle, canPrompt = true) {
     let perm = await handle.queryPermission({ mode: 'readwrite' });
     if (perm === 'prompt' && canPrompt) {
       perm = await askWritePermission(handle);
+      if (perm === 'cancelled') return false;
       if (perm !== 'granted') { showPermissionDenied(handle); return false; }
     }
     if (perm !== 'granted') return false;
@@ -2299,6 +2404,7 @@ async function loadFromHandle(handle, canPrompt = true) {
   parseData(text);
 
   fileHandle = handle;
+  lastKnownText = text;
   addRecent(handle);
   showConnectedStatus(file.name);
   forceNewBackup = true;
@@ -2310,11 +2416,15 @@ async function loadFromHandle(handle, canPrompt = true) {
 /* The browser shows its own permission prompt, which we can't style or
    reword. Explain it first in our own window; the click on "continue"
    also gives the browser the user gesture it requires for the prompt. */
+let permInfoCancel = null;
 function askWritePermission(handle) {
   const overlay = document.getElementById('permInfoModalOverlay');
   overlay.style.display = 'flex';
   return new Promise(resolve => {
+    // Esc closes the window: the file just isn't opened, without an error message
+    permInfoCancel = () => { permInfoCancel = null; overlay.style.display = 'none'; resolve('cancelled'); };
     document.getElementById('permInfoContinue').onclick = async () => {
+      permInfoCancel = null;
       overlay.style.display = 'none';
       try { resolve(await handle.requestPermission({ mode: 'readwrite' })); }
       catch (e) { resolve('denied'); }
@@ -2339,7 +2449,16 @@ function showPermissionDenied(handle) {
 /* Create new data file */
 document.getElementById('createNewBtn').onclick = () => {
   if (!hasFS) {
-    showMessage('הדפדפן לא נתמך', 'הדפדפן שלך לא תומך ביצירת קבצים. נא להשתמש בכרום או אדג\' במחשב.');
+    // No file access (iPhone, Firefox...): start an empty kit; the data is saved by downloading a file
+    items = [];
+    categories = ['כללי'];
+    customTitleText = 'התיק שלי';
+    customTitleLabelEl.textContent = customTitleText;
+    fileHandle = null;
+    currentFileName = null;
+    forceNewBackup = true;
+    showApp();
+    showUnsavedStatus('תיק חדש. הדפדפן הזה לא יודע לשמור אוטומטית: אחרי שינויים יש להוריד קובץ, ולשמור אותו למשל בדרופבוקס');
     return;
   }
   document.getElementById('newFileInfoModalOverlay').style.display = 'flex';
@@ -2360,8 +2479,10 @@ document.getElementById('newFileInfoContinue').onclick = async () => {
     categories = ['כללי'];
     customTitleText = 'התיק שלי';
     customTitleLabelEl.textContent = customTitleText;
-    await writeToFile(handle, serializeData());
+    const text = serializeData();
+    await writeToFile(handle, text);
     fileHandle = handle;
+    lastKnownText = text;
     await saveHandleToDB(handle);
     addRecent(handle);
     showConnectedStatus(handle.name, 'נוצר קובץ חדש');
@@ -2400,9 +2521,8 @@ async function openExisting() {
     const [handle] = await window.showOpenFilePicker(isAndroid ? {} : {
       types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
     });
-    await saveHandleToDB(handle);
     try {
-      await loadFromHandle(handle);
+      if (await loadFromHandle(handle)) await saveHandleToDB(handle);
     } catch (e) {
       showMessage('הקובץ פגום', 'הקובץ שנטען אינו תקין או פגום. אנא בחר קובץ אחר או צור קובץ חדש.');
     }
@@ -2758,6 +2878,7 @@ closeOnBackdrop(aboutOverlay, closeAbout);
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     if (dialogResolve) { closeDialog(null); return; }
+    if (permInfoCancel) { permInfoCancel(); return; }
     if (aboutOverlay.style.display !== 'none') { closeAbout(); return; }
     if (sendModalOverlay.style.display !== 'none') { closeSendModal(); return; }
     if (document.querySelector('.tb-menu.open')) { closeMenus(); return; }
