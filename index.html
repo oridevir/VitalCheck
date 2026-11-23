@@ -2370,7 +2370,9 @@ async function openExisting() {
       input.click();
       return;
     }
-    const [handle] = await window.showOpenFilePicker({
+    // באנדרואיד הסינון לפי סוג מאפיר קבצי json מדרופבוקס (שמסומנים שם כקובץ כללי), ולכן שם לא מסננים. התוכן נבדק בטעינה.
+    const isAndroid = /Android/i.test(navigator.userAgent);
+    const [handle] = await window.showOpenFilePicker(isAndroid ? {} : {
       types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
     });
     await saveHandleToDB(handle);
