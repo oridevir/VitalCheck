@@ -397,15 +397,6 @@
   }
 
   #restoreBtn { display: none; }
-  #welcomeScreen .link-btn {
-    margin-top: 14px;
-    background: none;
-    border: none;
-    color: var(--muted);
-    text-decoration: underline;
-    font-size: 14px;
-    cursor: pointer;
-  }
 
   /* ---------- Table ---------- */
   table {
@@ -914,7 +905,6 @@
           <hr>
           <button type="button" id="saveAsBtn">💾 שמירה כקובץ חדש</button>
           <button type="button" id="switchFileBtn">📂 פתיחת קובץ אחר</button>
-          <button type="button" id="switchFileSimpleBtn" style="display:none;">📂 פתיחת קובץ (אם הקובץ מופיע באפור)</button>
           <hr>
           <button type="button" id="startOverBtn">🔄 התחל מהתחלה</button>
         </div>
@@ -979,10 +969,9 @@
       <button class="navy" id="openExistingBtn">📂 יש לי כבר קובץ — פתח אותו</button>
       <button id="restoreBtn">♻️ שחזור מגיבוי</button>
     </div>
-    <button type="button" class="link-btn" id="openSimpleLink" style="display:none;">הקובץ אפור (למשל בדרופבוקס)? לחץ כאן</button>
 
     <div class="browser-note" id="reopenNotice" style="display:none;"></div>
-    <div class="browser-note">⚠️ האפליקציה עובדת בדפדפן כרום או אדג' בלבד (במחשב)</div>
+    <div class="browser-note">⚠️ שמירה אוטומטית לקובץ עובדת בדפדפן כרום או אדג', במחשב ובטלפון אנדרואיד. באייפון ובדפדפנים אחרים אפשר לעבוד, אבל אחרי שינויים צריך להוריד קובץ מעודכן</div>
   </div>
 
   <!-- Main table -->
@@ -1882,8 +1871,7 @@ document.getElementById('printBtn').onclick = () => {
 
 /* ---------- File handling ---------- */
 const hasFS = !!window.showOpenFilePicker;
-// באנדרואיד חלון הבחירה של showOpenFilePicker עובד עם גוגל דרייב (כולל שמירה אוטומטית) אבל מאפיר את כל הקבצים בדרופבוקס.
-// לכן באנדרואיד יש גם קישור לפתיחה בחלון הבחירה הרגיל (openExisting(true)), בלי שמירה אוטומטית.
+// באנדרואיד לא מסננים לפי סוג בחלון הבחירה: דרופבוקס לא מסמן קובץ json כ-JSON ואז הוא מואפר.
 const isAndroid = /Android/i.test(navigator.userAgent);
 
 function openDB() {
@@ -2374,9 +2362,9 @@ document.getElementById('newFileInfoContinue').onclick = async () => {
 };
 
 /* Open existing file */
-async function openExisting(simplePicker = false) {
+async function openExisting() {
   try {
-    if (!hasFS || simplePicker === true) {
+    if (!hasFS) {
       const input = document.createElement('input');
       input.type = 'file';
       // בלי accept: ספקי קבצים בטלפון (כמו דרופבוקס) לא תמיד מסמנים קובץ json כ-JSON ואז הוא מואפר. התוכן נבדק בטעינה.
@@ -2394,9 +2382,7 @@ async function openExisting(simplePicker = false) {
         forceNewBackup = true;
         backupToLocalStorage();
         showApp();
-        showUnsavedStatus(hasFS
-          ? `נטען "${file.name}" בלי שמירה אוטומטית. אחרי שינויים יש לשמור קובץ מעודכן`
-          : `נטען "${file.name}", אבל הדפדפן הזה לא יודע לשמור אוטומטית. אחרי שינויים יש להוריד קובץ מעודכן`);
+        showUnsavedStatus(`נטען "${file.name}", אבל הדפדפן הזה לא יודע לשמור אוטומטית. אחרי שינויים יש להוריד קובץ מעודכן`);
       };
       input.click();
       return;
@@ -2420,15 +2406,6 @@ document.getElementById('switchFileBtn').onclick = async () => {
   if (hasUnsavedData() && !(await confirmDiscardUnsaved())) return;
   openExisting();
 };
-document.getElementById('openSimpleLink').onclick = () => openExisting(true);
-document.getElementById('switchFileSimpleBtn').onclick = async () => {
-  if (hasUnsavedData() && !(await confirmDiscardUnsaved())) return;
-  openExisting(true);
-};
-if (isAndroid && hasFS) {
-  document.getElementById('openSimpleLink').style.display = '';
-  document.getElementById('switchFileSimpleBtn').style.display = '';
-}
 document.getElementById('saveAsBtn').onclick = saveAsNewFile;
 
 /* Restore from backup */
