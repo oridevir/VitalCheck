@@ -1858,6 +1858,8 @@ document.getElementById('printBtn').onclick = () => {
 
 /* ---------- File handling ---------- */
 const hasFS = !!window.showOpenFilePicker;
+// באנדרואיד חלון הבחירה של showOpenFilePicker מאפיר את כל הקבצים בדרופבוקס, ולכן שם פותחים קובץ בדרך הרגילה.
+const isAndroid = /Android/i.test(navigator.userAgent);
 
 function openDB() {
   return new Promise((resolve, reject) => {
@@ -2347,7 +2349,7 @@ document.getElementById('newFileInfoContinue').onclick = async () => {
 /* Open existing file */
 async function openExisting() {
   try {
-    if (!hasFS) {
+    if (!hasFS || isAndroid) {
       const input = document.createElement('input');
       input.type = 'file';
       // בלי accept: ספקי קבצים בטלפון (כמו דרופבוקס) לא תמיד מסמנים קובץ json כ-JSON ואז הוא מואפר. התוכן נבדק בטעינה.
@@ -2370,9 +2372,7 @@ async function openExisting() {
       input.click();
       return;
     }
-    // באנדרואיד הסינון לפי סוג מאפיר קבצי json מדרופבוקס (שמסומנים שם כקובץ כללי), ולכן שם לא מסננים. התוכן נבדק בטעינה.
-    const isAndroid = /Android/i.test(navigator.userAgent);
-    const [handle] = await window.showOpenFilePicker(isAndroid ? {} : {
+    const [handle] = await window.showOpenFilePicker({
       types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
     });
     await saveHandleToDB(handle);
