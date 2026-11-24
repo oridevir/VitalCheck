@@ -329,6 +329,32 @@
     padding: 12px 16px;
   }
   @media (max-width: 700px) { .file-status.error { margin: 12px 14px 0; } }
+  /* בלי שמירה אוטומטית (אייפון וכו') כשאין שינויים שלא הורדו */
+  .file-status.notice { color: var(--ink); font-size: 14px; }
+  .file-status button { margin-top: 6px; }
+
+  /* הודעה קטנה בתחתית המסך (למשל "הפריט נמחק — בטל") */
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--navy);
+    color: #fff;
+    padding: 10px 14px 10px 10px;
+    border-radius: 12px;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.25);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    z-index: 200;
+    font-size: 15px;
+    max-width: calc(100vw - 32px);
+  }
+  .toast[hidden] { display: none; }
+  .toast button { background: var(--teal); color: var(--navy); border: none; font-weight: 700; padding: 8px 14px; border-radius: 8px; cursor: pointer; }
+  th[data-key] { cursor: pointer; }
+  th[data-key]:focus-visible, #customTitle:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 
   /* ---------- Welcome screen ---------- */
   #welcomeScreen {
@@ -884,7 +910,7 @@
   </div>
   <div class="header-center">
     <div class="header-subtitle">מעקב תקפים ציוד רפואי</div>
-    <div id="customTitle" title="לחץ לשינוי שם הערכה"><span id="customTitleLabel">התיק שלי</span> <span class="edit-icon">✏️</span></div>
+    <div id="customTitle" title="לחץ לשינוי שם הערכה" role="button" tabindex="0" aria-label="שינוי שם התיק"><span id="customTitleLabel">התיק שלי</span> <span class="edit-icon">✏️</span></div>
   </div>
   <div class="header-credit">
     פותח על ידי <strong>ד"ר אורי דביר</strong><br>
@@ -893,8 +919,8 @@
 </header>
 
 <div class="toolbar" id="mainToolbar" style="display:none;">
-  <button id="mobileToolbarToggle" class="mobile-only" aria-label="הצג/הסתר סרגל כלים">☰ פעולות</button>
-  <div class="tb-row">
+  <button id="mobileToolbarToggle" class="mobile-only" aria-label="הצג/הסתר סרגל כלים" aria-expanded="false" aria-controls="mainToolbarRow">☰ פעולות</button>
+  <div class="tb-row" id="mainToolbarRow">
     <div class="tb-group tb-right">
       <div class="tb-menu-wrap">
         <button type="button" class="tb-menu-btn" id="fileMenuBtn" aria-haspopup="true" aria-expanded="false">📁 קובץ ▾</button>
@@ -909,7 +935,7 @@
           <button type="button" id="startOverBtn">🔄 התחל מהתחלה</button>
         </div>
       </div>
-      <input type="search" id="searchInput" placeholder="חיפוש לפי שם פריט..." aria-label="חיפוש לפי שם פריט" />
+      <input type="search" id="searchInput" placeholder="חיפוש לפי שם או קטגוריה..." aria-label="חיפוש לפי שם פריט או קטגוריה" />
       <button class="primary" id="addItemBtn">+ הוספת פריט</button>
     </div>
     <div class="tb-group tb-left">
@@ -932,7 +958,7 @@
   </div>
 </div>
 
-<div class="file-status" id="fileStatus" style="display:none;"></div>
+<div class="file-status" id="fileStatus" style="display:none;" role="status" aria-live="polite"></div>
 
 
 <main>
@@ -955,7 +981,7 @@
       VitalCheck עוזרת לך לעקוב אחרי תאריכי תוקף של הציוד הרפואי בתיק שלך:
       תרופות, עירויים, ציוד החייאה ועוד.<br><br>
       🔴 פג תוקף / פג החודש &nbsp;·&nbsp; 🟠 פג בחודש הבא &nbsp;·&nbsp; 🟡 פג בעוד חודשיים &nbsp;·&nbsp; 🟢 תקף &nbsp;·&nbsp; ⚪ ללא תוקף<br><br>
-      הנתונים נשמרים בקובץ מקומי במחשב שלך (מומלץ בתיקיית Dropbox / Google Drive לגיבוי אוטומטי). שינויים נשמרים אוטומטית.
+      הנתונים נשמרים בקובץ אצלך, במחשב או בטלפון (מומלץ בתיקיית Dropbox / Google Drive לגיבוי אוטומטי). שינויים נשמרים אוטומטית.
     </div>
 
     <div class="recent-box" id="recentBox" style="display:none;">
@@ -980,11 +1006,11 @@
     <table id="dataTable">
       <thead>
         <tr>
-          <th data-key="name">שם הפריט <span class="arrow"></span></th>
-          <th data-key="quantity">כמות <span class="arrow"></span></th>
-          <th data-key="expiry">תוקף <span class="arrow">▲</span></th>
-          <th data-key="category">קטגוריה <span class="arrow"></span></th>
-          <th>פעולות</th>
+          <th data-key="name" tabindex="0" scope="col">שם הפריט <span class="arrow"></span></th>
+          <th data-key="quantity" tabindex="0" scope="col">כמות <span class="arrow"></span></th>
+          <th data-key="expiry" tabindex="0" scope="col">תוקף <span class="arrow">▲</span></th>
+          <th data-key="category" tabindex="0" scope="col">קטגוריה <span class="arrow"></span></th>
+          <th scope="col">פעולות</th>
         </tr>
       </thead>
       <tbody id="tableBody"></tbody>
@@ -995,6 +1021,8 @@
     <footer class="summary" id="summary"></footer>
   </div>
 </main>
+
+<div class="toast" id="toast" hidden role="status" aria-live="polite"><span id="toastText"></span><button type="button" id="toastUndo">בטל</button></div>
 
 <!-- Print-only report, built by buildPrintReport() just before printing -->
 <div id="printReport"></div>
@@ -1105,7 +1133,7 @@
         <li>מוסיפים פריטים: שם, קטגוריה, תוקף, ואם רוצים — גם כמות</li>
         <li>כל שינוי נשמר בקובץ אוטומטית</li>
       </ol>
-      <p>אפשר לנהל כמה תיקים, לעבור ביניהם בלחיצה, ולהדפיס דוח מסודר או לשמור אותו כ־PDF.<br>האפליקציה פועלת במחשב, בדפדפן כרום או אדג׳.</p>
+      <p>אפשר לנהל כמה תיקים, לעבור ביניהם בלחיצה, ולהדפיס דוח מסודר או לשמור אותו כ־PDF.<br>האפליקציה פועלת בדפדפן כרום או אדג׳ במחשב ובטלפון אנדרואיד, עם שמירה אוטומטית לקובץ. באייפון ובדפדפנים אחרים אפשר לעבוד, ואחרי שינויים מורידים קובץ מעודכן.</p>
       <hr>
       <p>האפליקציה פותחה ע״י <b>ד״ר אורי דביר</b>.<br>כלים רפואיים דיגיטליים נוספים, למטופלים ולקהילה הרפואית, זמינים באתר <a href="https://drdevir.com" target="_blank" rel="noopener" dir="ltr">DrDevir.com<span class="a11y-sr"> (נפתח בחלון חדש)</span></a>.</p>
       <p>לפניות, הצעות והערות: <a href="mailto:VitalCheck@DrDevir.com" dir="ltr">VitalCheck@DrDevir.com</a></p>
@@ -1207,6 +1235,7 @@ const customTitleLabelEl = document.getElementById('customTitleLabel');
 
 document.getElementById('mobileToolbarToggle').onclick = () => {
   mainToolbar.classList.toggle('collapsed');
+  document.getElementById('mobileToolbarToggle').setAttribute('aria-expanded', String(!mainToolbar.classList.contains('collapsed')));
 };
 
 function monthsUntil(expiry) {
@@ -1296,7 +1325,7 @@ function getVisibleItems() {
 
 
   let filtered = items.filter(item => {
-    if (q && !item.name.toLowerCase().includes(q)) return false;
+    if (q && !item.name.toLowerCase().includes(q) && !item.category.toLowerCase().includes(q)) return false;
     if (catF && item.category !== catF) return false;
     if (selectedStatuses.size && !selectedStatuses.has(getStatus(item.expiry))) return false;
     return true;
@@ -1366,6 +1395,8 @@ function render() {
         <button class="edit-btn">ערוך</button>
         <button class="danger-btn delete-btn">מחק</button>
       </div>`;
+    tdActions.querySelector('.edit-btn').setAttribute('aria-label', `עריכת ${item.name}`);
+    tdActions.querySelector('.delete-btn').setAttribute('aria-label', `מחיקת ${item.name}`);
     tdActions.querySelector('.edit-btn').onclick = () => openModal(item.id);
     tdActions.querySelector('.delete-btn').onclick = () => deleteItem(item.id);
 
@@ -1394,16 +1425,25 @@ function renderSummary(filtered) {
   if (summaryTopEl) summaryTopEl.innerHTML = html;
 }
 
+function updateSortAria() {
+  document.querySelectorAll('thead th[data-key]').forEach(th => {
+    th.setAttribute('aria-sort', th.dataset.key === sortKey ? (sortAsc ? 'ascending' : 'descending') : 'none');
+  });
+}
 document.querySelectorAll('thead th[data-key]').forEach(th => {
-  th.addEventListener('click', () => {
+  const sortBy = () => {
     const key = th.dataset.key;
     if (sortKey === key) sortAsc = !sortAsc;
     else { sortKey = key; sortAsc = true; }
     document.querySelectorAll('thead th .arrow').forEach(a => a.textContent = '');
     th.querySelector('.arrow').textContent = sortAsc ? '▲' : '▼';
+    updateSortAria();
     render();
-  });
+  };
+  th.addEventListener('click', sortBy);
+  th.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sortBy(); } });
 });
+updateSortAria();
 
 searchInput.addEventListener('input', render);
 // The last option of the category list opens the category manager
@@ -1551,7 +1591,12 @@ document.getElementById('addItemBtn').onclick = () => openModal(null);
 document.getElementById('modalCancel').onclick = closeModal;
 closeOnBackdrop(modalOverlay, () => { closeModal(); });
 
-document.getElementById('modalSave').onclick = () => {
+// Enter in a text field of the item window = save (not in the category list)
+[modalName, modalQuantity, modalNewCategory, modalExpiry].forEach(el => el.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); document.getElementById('modalSave').click(); }
+}));
+
+document.getElementById('modalSave').onclick = async () => {
   const modalBox = modalOverlay.querySelector('.modal');
   clearFieldErrors(modalBox);
   const invalid = [];
@@ -1582,6 +1627,21 @@ document.getElementById('modalSave').onclick = () => {
   }
 
   if (invalid.length) { invalid[0].focus(); return; }
+
+  // Same name already in the kit (another item): ask before adding a duplicate
+  const norm = t => t.trim().toLowerCase();
+  const twin = items.find(i => i.id !== editingId && norm(i.name) === norm(name));
+  if (twin) {
+    const savedId = editingId;
+    const go = await showDialog({
+      title: 'כבר יש פריט בשם הזה',
+      html: `בתיק כבר יש פריט בשם <strong>"${escapeHtml(twin.name)}"</strong>` +
+        (twin.expiry ? ` (תוקף ${escapeHtml(formatExpiry(twin.expiry))})` : '') + '.<br>לשמור בכל זאת פריט נוסף באותו שם?',
+      buttons: [{ label: 'חזרה לעריכה', value: false }, { label: 'שמור בכל זאת', value: true, kind: 'primary' }]
+    });
+    if (!go) { modalName.focus(); return; }
+    editingId = savedId;
+  }
   if (modalCategory.value === '__new__' && !categories.includes(category)) categories.push(category);
 
   if (editingId) {
@@ -1599,29 +1659,50 @@ document.getElementById('modalSave').onclick = () => {
   autoSave();
 };
 
-async function deleteItem(id) {
-  const item = items.find(i => i.id === id);
-  const ok = await showDialog({
-    title: '🗑️ מחיקת פריט',
-    html: `למחוק את <strong>"${escapeHtml(item.name)}"</strong>?<br>אי אפשר לבטל את המחיקה.`,
-    buttons: [{ label: 'ביטול', value: false }, { label: 'מחק', value: true, kind: 'danger' }]
-  });
-  if (!ok) return;
-  items = items.filter(i => i.id !== id);
+// Deleting is immediate; a small message at the bottom offers "undo" for a few seconds
+function deleteItem(id) {
+  const index = items.findIndex(i => i.id === id);
+  if (index < 0) return;
+  const [removed] = items.splice(index, 1);
   render();
   autoSave();
+  showToast(`הפריט "${removed.name}" נמחק`, () => {
+    if (items.some(i => i.id === removed.id)) return;
+    items.splice(Math.min(index, items.length), 0, removed);
+    render();
+    autoSave();
+    showToast(`הפריט "${removed.name}" הוחזר`);
+  });
 }
+
+const toastEl = document.getElementById('toast');
+let toastTimer = null;
+function showToast(text, onUndo) {
+  clearTimeout(toastTimer);
+  document.getElementById('toastText').textContent = text;
+  const undo = document.getElementById('toastUndo');
+  undo.hidden = !onUndo;
+  undo.onclick = () => { hideToast(); if (onUndo) onUndo(); };
+  toastEl.hidden = false;
+  toastTimer = setTimeout(hideToast, onUndo ? 8000 : 3000);
+}
+function hideToast() { clearTimeout(toastTimer); toastEl.hidden = true; }
 
 /* ---------- Custom title ---------- */
 const titleModalOverlay = document.getElementById('titleModalOverlay');
 const titleInput = document.getElementById('titleInput');
 
-customTitleEl.addEventListener('click', () => {
+function openTitleModal() {
   titleInput.value = customTitleText;
   titleModalOverlay.style.display = 'flex';
   titleInput.focus();
-});
+}
+customTitleEl.addEventListener('click', openTitleModal);
+customTitleEl.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openTitleModal(); } });
 
+titleInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); document.getElementById('titleSave').click(); }
+});
 document.getElementById('titleCancel').onclick = () => titleModalOverlay.style.display = 'none';
 closeOnBackdrop(titleModalOverlay, () => { titleModalOverlay.style.display = 'none'; });
 
@@ -2192,8 +2273,14 @@ function backupToLocalStorage() {
    that can't write files) and would be lost by opening another file. */
 let currentFileName = null;
 let allowUnload = false;
+// saveFailed: the last save to the open file failed.
+// cleanText: without a file (iPhone etc.) — the data as last loaded from a file or downloaded.
+let saveFailed = false;
+let cleanText = null;
 function hasUnsavedData() {
-  return !fileHandle && items.length > 0 && appContent.style.display !== 'none';
+  if (!items.length || appContent.style.display === 'none') return false;
+  if (fileHandle) return saveFailed;
+  return cleanText === null || serializeData() !== cleanText;
 }
 
 // Resolves true only when the user chose to continue and discard.
@@ -2202,7 +2289,9 @@ function hasUnsavedData() {
 async function confirmDiscardUnsaved() {
   const choice = await showDialog({
     title: '⚠️ הנתונים לא שמורים!',
-    html: `${items.length} הפריטים שעל המסך עדיין לא שמורים בשום קובץ.<br>אם תמשיך, הם יימחקו מהמסך.`,
+    html: (fileHandle
+      ? 'השמירה האחרונה לקובץ נכשלה, ולכן השינויים האחרונים לא שמורים בו.'
+      : `השינויים ב-${items.length} הפריטים שעל המסך עדיין לא שמורים בשום קובץ.`) + '<br>אם תמשיך, הם יימחקו מהמסך.',
     stack: true,
     buttons: [
       { label: hasFS ? '💾 שמור קודם כקובץ חדש' : '💾 הורד קודם קובץ גיבוי', value: 'save', kind: 'primary' },
@@ -2214,11 +2303,12 @@ async function confirmDiscardUnsaved() {
   return choice === 'discard';
 }
 
-function showUnsavedStatus(prefix) {
+// dirty = false: nothing to save yet (e.g. a file just loaded in a browser without auto-save)
+function showUnsavedStatus(prefix, dirty = true) {
   fileStatus.innerHTML = '';
-  fileStatus.className = 'file-status error';
+  fileStatus.className = dirty ? 'file-status error' : 'file-status notice';
   const txt = document.createElement('span');
-  txt.textContent = `⚠️ ${prefix} — הנתונים עדיין לא שמורים בקובץ! `;
+  txt.textContent = dirty ? `⚠️ ${prefix} — הנתונים עדיין לא שמורים בקובץ! ` : `${prefix} `;
   const btn = document.createElement('button');
   btn.className = 'primary';
   btn.textContent = hasFS ? '💾 שמור עכשיו כקובץ חדש' : '💾 הורד קובץ גיבוי';
@@ -2237,12 +2327,16 @@ async function saveAsNewFile() {
   const suggestedName = `vitalcheck-${safeTitle}.json`;
   if (!hasFS) {
     // Browsers without file access: download a copy instead
-    const blob = new Blob([serializeData()], { type: 'application/json' });
+    const text = serializeData();
+    const blob = new Blob([text], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = suggestedName;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    cleanText = text;
+    currentFileName = suggestedName;
+    showUnsavedStatus(`⬇️ הורד קובץ "${suggestedName}" בשעה ${new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}. אחרי שינויים נוספים יש להוריד שוב.`, false);
     return;
   }
   try {
@@ -2254,6 +2348,7 @@ async function saveAsNewFile() {
     await writeToFile(handle, text);
     fileHandle = handle;
     lastKnownText = text;
+    saveFailed = false;
     await saveHandleToDB(handle);
     addRecent(handle);
     showConnectedStatus(handle.name, 'נשמר ומחובר לקובץ');
@@ -2280,7 +2375,10 @@ async function readFileText(handle) {
 // Saves run one after another, so a quick second change can't be overtaken by an older one
 function autoSave() {
   backupToLocalStorage();
-  if (!fileHandle) return Promise.resolve();
+  if (!fileHandle) {
+    if (hasUnsavedData()) showUnsavedStatus(hasFS ? 'יש שינויים שלא נשמרו בקובץ' : 'יש שינויים שעוד לא הורדו לקובץ');
+    return Promise.resolve();
+  }
   saveChain = saveChain.then(doSave, doSave);
   return saveChain;
 }
@@ -2300,11 +2398,12 @@ async function doSave() {
     const text = serializeData();
     await writeToFile(handle, text);
     lastKnownText = text;
+    saveFailed = false;
     fileStatus.textContent = `✅ נשמר אוטומטית בקובץ "${handle.name}" בשעה ${new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })} — אין צורך ללחוץ על שמירה`;
     fileStatus.className = 'file-status connected';
   } catch(err) {
-    fileStatus.textContent = `⚠️ שגיאה בשמירה: ${err.message}`;
-    fileStatus.className = 'file-status error';
+    saveFailed = true;
+    showUnsavedStatus(`שגיאה בשמירה לקובץ "${handle.name}" (${err.message}). ייתכן שהקובץ הועבר או נמחק`);
   }
 }
 
@@ -2342,6 +2441,8 @@ async function handleConflict(handle, current) {
 // Back to this tab: if the file was updated elsewhere meanwhile, show the new version
 // right away (everything here is already saved, so nothing is lost).
 document.addEventListener('visibilitychange', () => {
+  // A tab left open into a new month: refresh the colors
+  if (document.visibilityState === 'visible' && appContent.style.display !== 'none') render();
   if (document.visibilityState !== 'visible' || !fileHandle || lastKnownText === null) return;
   const handle = fileHandle;
   saveChain = saveChain.then(async () => {
@@ -2405,6 +2506,7 @@ async function loadFromHandle(handle, canPrompt = true) {
 
   fileHandle = handle;
   lastKnownText = text;
+  saveFailed = false;
   addRecent(handle);
   showConnectedStatus(file.name);
   forceNewBackup = true;
@@ -2456,9 +2558,10 @@ document.getElementById('createNewBtn').onclick = () => {
     customTitleLabelEl.textContent = customTitleText;
     fileHandle = null;
     currentFileName = null;
+    cleanText = serializeData();
     forceNewBackup = true;
     showApp();
-    showUnsavedStatus('תיק חדש. הדפדפן הזה לא יודע לשמור אוטומטית: אחרי שינויים יש להוריד קובץ, ולשמור אותו למשל בדרופבוקס');
+    showUnsavedStatus('✨ תיק חדש. בדפדפן הזה אין שמירה אוטומטית: אחרי שינויים יש להוריד קובץ ולשמור אותו, למשל בדרופבוקס.', false);
     return;
   }
   document.getElementById('newFileInfoModalOverlay').style.display = 'flex';
@@ -2483,6 +2586,7 @@ document.getElementById('newFileInfoContinue').onclick = async () => {
     await writeToFile(handle, text);
     fileHandle = handle;
     lastKnownText = text;
+    saveFailed = false;
     await saveHandleToDB(handle);
     addRecent(handle);
     showConnectedStatus(handle.name, 'נוצר קובץ חדש');
@@ -2510,10 +2614,11 @@ async function openExisting() {
         }
         fileHandle = null;
         currentFileName = file.name;
+        cleanText = serializeData();
         forceNewBackup = true;
         backupToLocalStorage();
         showApp();
-        showUnsavedStatus(`נטען "${file.name}", אבל הדפדפן הזה לא יודע לשמור אוטומטית. אחרי שינויים יש להוריד קובץ מעודכן`);
+        showUnsavedStatus(`📄 נטען "${file.name}". בדפדפן הזה אין שמירה אוטומטית: אחרי שינויים יש להוריד קובץ מעודכן.`, false);
       };
       input.click();
       return;
@@ -2556,6 +2661,7 @@ function restoreBackup(entry) {
   }
   fileHandle = null;
   currentFileName = null;
+  cleanText = null;
   forceNewBackup = true;
   backupsModalOverlay.style.display = 'none';
   showApp();
@@ -2800,9 +2906,14 @@ function closeSendModal() { sendModalOverlay.style.display = 'none'; }
 document.getElementById('sendReportBtn').onclick = () => {
   document.getElementById('sendIntro').textContent =
     `קובץ PDF מלא של כל ${items.length} הפריטים בתיק, ובגוף ההודעה — מה שפג תוקפו ומה שיפוג בחודשיים הקרובים.`;
-  document.getElementById('sendShare').style.display = canShareFiles() ? 'flex' : 'none';
+  const share = canShareFiles();
+  document.getElementById('sendShare').style.display = share ? 'flex' : 'none';
+  // On a phone "open in Gmail" (download + drag the file into the draft) doesn't work; sharing does
+  const phone = matchMedia('(pointer: coarse)').matches;
+  document.getElementById('sendGmail').style.display = share && phone ? 'none' : 'flex';
   sendModalOverlay.style.display = 'flex';
-  document.getElementById('sendGmail').focus();
+  const first = [...sendModalOverlay.querySelectorAll('.send-opt')].find(b => b.style.display !== 'none');
+  if (first) first.focus();
   loadPdfLibs().catch(() => {});   // start loading now, so the click itself is quick
 };
 document.getElementById('sendClose').onclick = closeSendModal;
@@ -2873,6 +2984,56 @@ function closeAbout() {
 aboutBtn.onclick = openAbout;
 document.getElementById('aboutClose').onclick = closeAbout;
 closeOnBackdrop(aboutOverlay, closeAbout);
+
+/* ---------- Screen readers and keyboard: windows ----------
+   Every window is marked as a dialog with its heading as the name. While one is
+   open, Tab stays inside it; when it closes, focus goes back where it was. */
+const FOCUSABLE = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+const isShown = el => el.style.display !== 'none';
+// The window opener usually moves focus into the window before we notice it opened,
+// so remember the element focused just before that.
+let curFocus = null, prevFocus = null;
+document.addEventListener('focusin', e => { prevFocus = curFocus; curFocus = e.target; });
+document.querySelectorAll('.modal-overlay').forEach((ov, n) => {
+  const box = ov.querySelector('.modal, .about-box');
+  if (box && !box.hasAttribute('role')) {
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-modal', 'true');
+    const h = box.querySelector('h2');
+    if (h) { if (!h.id) h.id = `dlgTitle${n}`; box.setAttribute('aria-labelledby', h.id); }
+  }
+  let returnTo = null;
+  new MutationObserver(() => {
+    if (isShown(ov)) {
+      if (!returnTo) returnTo = ov.contains(curFocus) ? prevFocus : (curFocus || document.activeElement);
+      // If the opener didn't move focus into the window, do it here
+      setTimeout(() => {
+        if (isShown(ov) && !ov.contains(document.activeElement)) {
+          const f = [...ov.querySelectorAll(FOCUSABLE)].find(el => el.offsetParent !== null);
+          if (f) f.focus();
+        }
+      }, 0);
+    } else if (returnTo) {
+      const back = returnTo;
+      returnTo = null;
+      setTimeout(() => {
+        const inOpenWindow = [...document.querySelectorAll('.modal-overlay')].some(o => isShown(o) && o.contains(document.activeElement));
+        if (!inOpenWindow && back && document.contains(back) && back.offsetParent !== null) back.focus();
+      }, 0);
+    }
+  }).observe(ov, { attributes: true, attributeFilter: ['style'] });
+});
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Tab') return;
+  const open = [...document.querySelectorAll('.modal-overlay')].filter(isShown).pop();
+  if (!open) return;
+  const list = [...open.querySelectorAll(FOCUSABLE)].filter(el => el.offsetParent !== null && !el.disabled);
+  if (!list.length) return;
+  const first = list[0], last = list[list.length - 1];
+  if (!open.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+  else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+});
 
 /* ---------- Escape closes any open modal ---------- */
 document.addEventListener('keydown', (e) => {
