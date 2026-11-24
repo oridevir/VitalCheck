@@ -499,6 +499,9 @@
 
   .actions-cell { display: flex; gap: 6px; white-space: nowrap; }
   .actions-cell button { padding: 6px 10px; font-size: 12px; border-radius: 8px; }
+  .renew-btn { border-color: var(--teal-dark); color: #0b5e46; font-weight: 700; }
+  .renew-btn:hover { background: var(--good); }
+  .renew-info { margin: 0 0 4px; color: var(--muted); font-size: 14px; line-height: 1.6; }
   .danger-btn { color: #c0392b; border-color: var(--danger-border); }
   .danger-btn:hover { background: var(--danger); color: #8c2318; }
 
@@ -1053,6 +1056,22 @@
   </div>
 </div>
 
+<!-- Renew modal: new expiry (and quantity) for an item that was replaced -->
+<div class="modal-overlay" id="renewModalOverlay" style="display:none;">
+  <div class="modal">
+    <h2 id="renewTitle">🔄 חידוש פריט</h2>
+    <p class="renew-info" id="renewInfo"></p>
+    <label for="renewExpiry">תוקף חדש (חודש/שנה). לדוגמה: 06/28</label>
+    <input type="text" id="renewExpiry" placeholder="MM/YY" inputmode="numeric" maxlength="5" />
+    <label for="renewQuantity">כמות (לא חובה)</label>
+    <input type="text" id="renewQuantity" inputmode="numeric" maxlength="4" />
+    <div class="modal-actions">
+      <button id="renewCancel">ביטול</button>
+      <button class="primary" id="renewSave">שמירה</button>
+    </div>
+  </div>
+</div>
+
 <!-- Title edit modal -->
 <div class="modal-overlay" id="titleModalOverlay" style="display:none;">
   <div class="modal">
@@ -1392,11 +1411,14 @@ function render() {
     const tdActions = document.createElement('td');
     tdActions.setAttribute('data-label', 'פעולות');
     tdActions.innerHTML = `<div class="actions-cell">
+        <button class="renew-btn">🔄 חידוש</button>
         <button class="edit-btn">ערוך</button>
         <button class="danger-btn delete-btn">מחק</button>
       </div>`;
     tdActions.querySelector('.edit-btn').setAttribute('aria-label', `עריכת ${item.name}`);
     tdActions.querySelector('.delete-btn').setAttribute('aria-label', `מחיקת ${item.name}`);
+    tdActions.querySelector('.renew-btn').setAttribute('aria-label', `חידוש ${item.name}`);
+    tdActions.querySelector('.renew-btn').onclick = () => openRenew(item.id);
     tdActions.querySelector('.edit-btn').onclick = () => openModal(item.id);
     tdActions.querySelector('.delete-btn').onclick = () => deleteItem(item.id);
 
@@ -1687,6 +1709,83 @@ function showToast(text, onUndo) {
   toastTimer = setTimeout(hideToast, onUndo ? 8000 : 3000);
 }
 function hideToast() { clearTimeout(toastTimer); toastEl.hidden = true; }
+
+/* ---------- Renew: the item was replaced with a new one ----------
+   Only the expiry (and optionally the quantity) changes. The date of the
+   renewal is kept in the item as renewedAt ("YYYY-MM-DD"). */
+const renewOverlay = document.getElementById('renewModalOverlay');
+const renewExpiry = document.getElementById('renewExpiry');
+const renewQuantity = document.getElementById('renewQuantity');
+let renewingId = null;
+
+function formatDay(iso) {
+  const [y, m, d] = iso.split('-');
+  return `${Number(d)}.${Number(m)}.${y}`;
+}
+
+function openRenew(id) {
+  const item = items.find(i => i.id === id);
+  if (!item) return;
+  renewingId = id;
+  clearFieldErrors(renewOverlay);
+  document.getElementById('renewTitle').textContent = `🔄 חידוש: ${item.name}`;
+  const info = [`תוקף נוכחי: ${item.expiry ? formatExpiry(item.expiry) : 'ללא תוקף'}`];
+  if (typeof item.renewedAt === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(item.renewedAt)) info.push(`חודש לאחרונה: ${formatDay(item.renewedAt)}`);
+  document.getElementById('renewInfo').textContent = info.join(' · ');
+  renewExpiry.value = '';
+  renewQuantity.value = item.quantity == null ? '' : item.quantity;
+  renewOverlay.style.display = 'flex';
+  renewExpiry.focus();
+}
+
+function closeRenew() { renewOverlay.style.display = 'none'; renewingId = null; }
+
+renewExpiry.addEventListener('input', () => {
+  const digits = renewExpiry.value.replace(/\D/g, '').slice(0, 4);
+  renewExpiry.value = digits.length > 2 ? `${digits.slice(0, 2)}/${digits.slice(2)}` : digits;
+});
+renewQuantity.addEventListener('input', () => {
+  renewQuantity.value = renewQuantity.value.replace(/\D/g, '').slice(0, 4);
+});
+[renewExpiry, renewQuantity].forEach(el => el.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); document.getElementById('renewSave').click(); }
+}));
+document.getElementById('renewCancel').onclick = closeRenew;
+closeOnBackdrop(renewOverlay, closeRenew);
+
+document.getElementById('renewSave').onclick = () => {
+  const item = items.find(i => i.id === renewingId);
+  if (!item) { closeRenew(); return; }
+  clearFieldErrors(renewOverlay);
+  const invalid = [];
+  const expiry = parseExpiryInput(renewExpiry.value);
+  if (!renewExpiry.value.trim()) { setFieldError(renewExpiry, 'יש להזין את התוקף של הפריט החדש'); invalid.push(renewExpiry); }
+  else if (!expiry) { setFieldError(renewExpiry, 'תוקף לא תקין. יש להזין חודש/שנה, לדוגמה 06/28'); invalid.push(renewExpiry); }
+  else if (monthsUntil(expiry) < 0) { setFieldError(renewExpiry, 'התוקף הזה כבר עבר. בדוק את התאריך שעל האריזה'); invalid.push(renewExpiry); }
+  const rawQty = renewQuantity.value.trim();
+  const quantity = rawQty ? parseInt(rawQty, 10) : null;
+  if (quantity !== null && !(quantity > 0)) { setFieldError(renewQuantity, 'כמות חייבת להיות מספר גדול מ-0, או להישאר ריקה'); invalid.push(renewQuantity); }
+  if (invalid.length) { invalid[0].focus(); return; }
+
+  const before = { expiry: item.expiry, quantity: item.quantity, renewedAt: item.renewedAt };
+  const d = new Date();
+  item.expiry = expiry;
+  item.quantity = quantity;
+  item.renewedAt = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  closeRenew();
+  render();
+  autoSave();
+  showToast(`"${item.name}" חודש — תוקף ${formatExpiry(expiry)}`, () => {
+    const it = items.find(i => i.id === item.id);
+    if (!it) return;
+    it.expiry = before.expiry;
+    it.quantity = before.quantity;
+    if (before.renewedAt === undefined) delete it.renewedAt; else it.renewedAt = before.renewedAt;
+    render();
+    autoSave();
+    showToast('החידוש בוטל');
+  });
+};
 
 /* ---------- Custom title ---------- */
 const titleModalOverlay = document.getElementById('titleModalOverlay');
