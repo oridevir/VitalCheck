@@ -1764,7 +1764,7 @@ renewQuantity.addEventListener('input', () => {
 document.getElementById('renewCancel').onclick = closeRenew;
 closeOnBackdrop(renewOverlay, closeRenew);
 
-document.getElementById('renewSave').onclick = () => {
+document.getElementById('renewSave').onclick = async () => {
   const item = items.find(i => i.id === renewingId);
   if (!item) { closeRenew(); return; }
   clearFieldErrors(renewOverlay);
@@ -1772,11 +1772,21 @@ document.getElementById('renewSave').onclick = () => {
   const expiry = parseExpiryInput(renewExpiry.value);
   if (!renewExpiry.value.trim()) { setFieldError(renewExpiry, 'יש להזין את התוקף של הפריט החדש'); invalid.push(renewExpiry); }
   else if (!expiry) { setFieldError(renewExpiry, 'תוקף לא תקין. יש להזין חודש/שנה, לדוגמה 06/28'); invalid.push(renewExpiry); }
-  else if (monthsUntil(expiry) < 0) { setFieldError(renewExpiry, 'התוקף הזה כבר עבר. בדוק את התאריך שעל האריזה'); invalid.push(renewExpiry); }
   const rawQty = renewQuantity.value.trim();
   const quantity = rawQty ? parseInt(rawQty, 10) : null;
   if (quantity !== null && !(quantity > 0)) { setFieldError(renewQuantity, 'כמות חייבת להיות מספר גדול מ-0, או להישאר ריקה'); invalid.push(renewQuantity); }
   if (invalid.length) { invalid[0].focus(); return; }
+  // A date that already passed is allowed (it may be right), but asked about first
+  if (monthsUntil(expiry) < 0) {
+    const id = renewingId;
+    const go = await showDialog({
+      title: 'התוקף הזה כבר עבר',
+      html: `התוקף שהוזן, <strong>${escapeHtml(formatExpiry(expiry))}</strong>, כבר עבר. לשמור בכל זאת?`,
+      buttons: [{ label: 'חזרה לעריכה', value: false }, { label: 'שמור בכל זאת', value: true, kind: 'primary' }]
+    });
+    if (!go) { renewExpiry.focus(); return; }
+    if (renewingId !== id) return;
+  }
 
   const before = { expiry: item.expiry, quantity: item.quantity, renewedAt: item.renewedAt };
   const d = new Date();
