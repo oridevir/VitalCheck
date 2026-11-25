@@ -314,13 +314,10 @@
     text-align: center;
   }
 
-  .file-status.connected { color: #0b5e46; } /* נובמבר 2026: --teal-dark על הרקע הבהיר היה 2.75 */
-  /* נובמבר 2026: אזהרת "לא שמור" כמסגרת בולטת ולא שורת טקסט קטנה */
-  .file-status.error {
-    color: #7a1f14;
-    background: #fdecea;
-    border: 2px solid #c0392b;
+  /* נובמבר 2026: שורת המצב כמסגרת בולטת בכל מצב — ירוק כשהכל שמור, אדום כשלא, אפור כשאין שמירה אוטומטית */
+  .file-status.connected, .file-status.error, .file-status.notice {
     border-radius: 12px;
+    border: 2px solid;
     font-size: 15px;
     font-weight: 600;
     line-height: 1.6;
@@ -328,9 +325,13 @@
     max-width: 900px;
     padding: 12px 16px;
   }
-  @media (max-width: 700px) { .file-status.error { margin: 12px 14px 0; } }
+  .file-status.connected { color: #0b5e46; background: #e3f6ee; border-color: var(--teal-dark); }
+  .file-status.error { color: #7a1f14; background: #fdecea; border-color: #c0392b; }
   /* בלי שמירה אוטומטית (אייפון וכו') כשאין שינויים שלא הורדו */
-  .file-status.notice { color: var(--ink); font-size: 14px; }
+  .file-status.notice { color: var(--ink); background: #f3f5f8; border-color: var(--line); }
+  @media (max-width: 700px) {
+    .file-status.connected, .file-status.error, .file-status.notice { margin: 12px 14px 0; }
+  }
   .file-status button { margin-top: 6px; }
 
   /* הודעה קטנה בתחתית המסך (למשל "הפריט נמחק — בטל") */
@@ -1683,7 +1684,16 @@ document.getElementById('modalSave').onclick = async () => {
 };
 
 // Deleting is immediate; a small message at the bottom offers "undo" for a few seconds
-function deleteItem(id) {
+// Asks first; after deleting, a message at the bottom still offers "undo" for a few seconds
+async function deleteItem(id) {
+  const item = items.find(i => i.id === id);
+  if (!item) return;
+  const ok = await showDialog({
+    title: '🗑️ מחיקת פריט',
+    html: `למחוק את <strong>"${escapeHtml(item.name)}"</strong>?`,
+    buttons: [{ label: 'ביטול', value: false }, { label: 'מחק', value: true, kind: 'danger' }]
+  });
+  if (!ok) return;
   const index = items.findIndex(i => i.id === id);
   if (index < 0) return;
   const [removed] = items.splice(index, 1);
@@ -2301,10 +2311,21 @@ function parseData(text, checkOnly = false) {
   customTitleLabelEl.textContent = customTitleText;
 }
 
+// If writing fails midway, abort: an unclosed writable keeps the file locked
+// and every later save would fail too.
 async function writeToFile(handle, json) {
-  const writable = await handle.createWritable();
-  await writable.write(json);
-  await writable.close();
+  let writable = null, step = 'createWritable';
+  try {
+    writable = await handle.createWritable();
+    step = 'write';
+    await writable.write(json);
+    step = 'close';
+    await writable.close();
+  } catch (e) {
+    if (writable && step !== 'close') { try { await writable.abort(); } catch (e2) {} }
+    e.step = step;
+    throw e;
+  }
 }
 
 /* Local backups: a list of up to MAX_BACKUPS snapshots in this browser.
@@ -2379,7 +2400,7 @@ let saveFailed = false;
 let cleanText = null;
 function hasUnsavedData() {
   if (!items.length || appContent.style.display === 'none') return false;
-  if (fileHandle) return saveFailed;
+  if (fileHandle) return saveFailed || savesPending > 0;
   return cleanText === null || serializeData() !== cleanText;
 }
 
@@ -2489,9 +2510,13 @@ function autoSave() {
     if (hasUnsavedData()) showUnsavedStatus(hasFS ? 'יש שינויים שלא נשמרו בקובץ' : 'יש שינויים שעוד לא הורדו לקובץ');
     return Promise.resolve();
   }
-  saveChain = saveChain.then(doSave, doSave);
+  // Counted until written, so closing the tab meanwhile still warns
+  savesPending++;
+  const run = () => doSave().finally(() => { savesPending--; });
+  saveChain = saveChain.then(run, run);
   return saveChain;
 }
+let savesPending = 0;
 
 async function doSave() {
   const handle = fileHandle;
@@ -2510,16 +2535,54 @@ async function doSave() {
         }
       }
     }
-    const text = serializeData();
-    await writeToFile(handle, text);
-    setKnown(text);
-    saveFailed = false;
-    fileStatus.textContent = `✅ נשמר אוטומטית בקובץ "${handle.name}" בשעה ${new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })} — אין צורך ללחוץ על שמירה`;
-    fileStatus.className = 'file-status connected';
+    // On a phone (e.g. Dropbox), a write right after another one can be refused while
+    // the previous one is still being handled: keep a gap, and retry a failed write.
+    const gap = MIN_WRITE_GAP_MS - (Date.now() - lastWriteAt);
+    if (gap > 0) await sleep(gap);
+    let lastErr = null;
+    for (const wait of [0, 1500, 4000]) {
+      if (wait) await sleep(wait);
+      if (handle !== fileHandle) return;
+      const text = serializeData();   // latest data, also on a retry
+      try {
+        await writeToFile(handle, text);
+        lastWriteAt = Date.now();
+        setKnown(text);
+        saveFailed = false;
+        fileStatus.textContent = `✅ נשמר אוטומטית בקובץ "${handle.name}" בשעה ${new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })} — אין צורך ללחוץ על שמירה`;
+        fileStatus.className = 'file-status connected';
+        return;
+      } catch (e) {
+        lastWriteAt = Date.now();
+        lastErr = e;
+        console.warn('save failed', e && e.name, e && e.step, e);
+      }
+    }
+    throw lastErr;
   } catch(err) {
     saveFailed = true;
-    showUnsavedStatus(`שגיאה בשמירה לקובץ "${handle.name}" (${err.message}). ייתכן שהקובץ הועבר או נמחק`);
+    showSaveError(handle, err);
   }
+}
+
+const MIN_WRITE_GAP_MS = 1500;
+let lastWriteAt = 0;
+
+// The last changes did not reach the file (also after retrying)
+function showSaveError(handle, err) {
+  fileStatus.innerHTML = '';
+  fileStatus.className = 'file-status error';
+  const txt = document.createElement('div');
+  txt.textContent = `⚠️ השינויים האחרונים לא נשמרו בקובץ "${handle.name}". ` +
+    'הם עדיין על המסך. לחץ "נסה לשמור שוב". אם זה חוזר: סגור את הלשונית, פתח את האתר מחדש ופתח את הקובץ, ואז בצע את השינוי שוב.';
+  const detail = document.createElement('div');
+  detail.style.cssText = 'font-size:12px; font-weight:400; opacity:.75; direction:ltr; margin-top:4px;';
+  detail.textContent = `${(err && err.name) || 'Error'}${err && err.step ? ' @ ' + err.step : ''}`;
+  const btn = document.createElement('button');
+  btn.className = 'primary';
+  btn.textContent = '🔄 נסה לשמור שוב';
+  btn.onclick = () => { fileStatus.textContent = '⏳ שומר…'; fileStatus.className = 'file-status notice'; autoSave(); };
+  fileStatus.append(txt, btn, detail);
 }
 
 async function handleConflict(handle, current) {
