@@ -2447,7 +2447,7 @@ async function saveAsNewFile() {
     const text = serializeData();
     await writeToFile(handle, text);
     fileHandle = handle;
-    lastKnownText = text;
+    setKnown(text);
     saveFailed = false;
     await saveHandleToDB(handle);
     addRecent(handle);
@@ -2465,6 +2465,16 @@ window.addEventListener('beforeunload', e => {
    the file is read again: if it differs, it was changed meanwhile from another
    device (e.g. the phone), and saving now would erase that change. */
 let lastKnownText = null;
+// Recent versions this window itself read or wrote. On a phone, reading the file
+// right after writing it can still return an earlier version for a moment; such a
+// version is ours, not a change from another device.
+let ownTexts = [];
+function setKnown(text) {
+  lastKnownText = text;
+  ownTexts = [text, ...ownTexts.filter(t => t !== text)].slice(0, 10);
+}
+const isOwnText = text => text === lastKnownText || ownTexts.includes(text);
+const sleep = ms => new Promise(res => setTimeout(res, ms));
 let saveChain = Promise.resolve();
 let conflictOpen = false;
 
@@ -2490,14 +2500,19 @@ async function doSave() {
     if (lastKnownText !== null) {
       let current = null;
       try { current = await readFileText(handle); } catch (e) { /* unreadable now: the write below reports it */ }
-      if (current !== null && current !== lastKnownText) {
-        await handleConflict(handle, current);
-        return;
+      if (current !== null && !isOwnText(current)) {
+        // Not a version we know: read once more after a moment before calling it a change from elsewhere
+        await sleep(1200);
+        try { current = await readFileText(handle); } catch (e) { current = null; }
+        if (current !== null && !isOwnText(current)) {
+          await handleConflict(handle, current);
+          return;
+        }
       }
     }
     const text = serializeData();
     await writeToFile(handle, text);
-    lastKnownText = text;
+    setKnown(text);
     saveFailed = false;
     fileStatus.textContent = `✅ נשמר אוטומטית בקובץ "${handle.name}" בשעה ${new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })} — אין צורך ללחוץ על שמירה`;
     fileStatus.className = 'file-status connected';
@@ -2521,7 +2536,7 @@ async function handleConflict(handle, current) {
   });
   conflictOpen = false;
   if (choice === 'overwrite') {
-    lastKnownText = current;
+    setKnown(current);
     return doSave();
   }
   // Reload (also on Esc): what was on screen stays in the local backups
@@ -2529,7 +2544,7 @@ async function handleConflict(handle, current) {
   backupToLocalStorage();
   try {
     parseData(current);
-    lastKnownText = current;
+    setKnown(current);
     render();
     showConnectedStatus(handle.name, 'נטענה הגרסה העדכנית מהקובץ');
     showMessage('נטענה הגרסה העדכנית', 'השינוי האחרון שעשית כאן לא נשמר. אם צריך, בצע אותו שוב. מה שהיה על המסך שמור גם ב"שחזור מגיבוי" במסך הפתיחה.');
@@ -2549,10 +2564,10 @@ document.addEventListener('visibilitychange', () => {
     if (handle !== fileHandle || conflictOpen || modalOverlay.style.display !== 'none') return;
     let current;
     try { current = await readFileText(handle); } catch (e) { return; }
-    if (current === lastKnownText) return;
+    if (isOwnText(current)) return;   // ours (possibly an earlier one, not yet updated on the phone)
     try { parseData(current, true); } catch (e) { return; }  // bad content: leave it to the next save
     parseData(current);
-    lastKnownText = current;
+    setKnown(current);
     render();
     showConnectedStatus(handle.name, 'הקובץ עודכן ממכשיר אחר ונטען מחדש');
   });
@@ -2605,7 +2620,7 @@ async function loadFromHandle(handle, canPrompt = true) {
   parseData(text);
 
   fileHandle = handle;
-  lastKnownText = text;
+  setKnown(text);
   saveFailed = false;
   addRecent(handle);
   showConnectedStatus(file.name);
@@ -2685,7 +2700,7 @@ document.getElementById('newFileInfoContinue').onclick = async () => {
     const text = serializeData();
     await writeToFile(handle, text);
     fileHandle = handle;
-    lastKnownText = text;
+    setKnown(text);
     saveFailed = false;
     await saveHandleToDB(handle);
     addRecent(handle);
