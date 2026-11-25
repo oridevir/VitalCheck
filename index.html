@@ -503,6 +503,15 @@
   .renew-btn { border-color: var(--teal-dark); color: #0b5e46; font-weight: 700; }
   .renew-btn:hover { background: var(--good); }
   .renew-info { margin: 0 0 4px; color: var(--muted); font-size: 14px; line-height: 1.6; }
+  .trash-h { font-size: 15px; margin: 14px 0 6px; color: var(--navy); }
+  .trash-list { max-height: 240px; overflow-y: auto; border: 1px solid var(--line); border-radius: 10px; }
+  .trash-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  .trash-row:last-child { border-bottom: none; }
+  .trash-row .tx { flex: 1; min-width: 0; }
+  .trash-row .t2 { color: var(--muted); font-size: 12px; }
+  .trash-row button { white-space: nowrap; }
+  .trash-empty { padding: 12px; color: var(--muted); font-size: 14px; text-align: center; }
+  .log-list .trash-row { font-size: 14px; display: block; }
   .danger-btn { color: #c0392b; border-color: var(--danger-border); }
   .danger-btn:hover { background: var(--danger); color: #8c2318; }
 
@@ -934,6 +943,8 @@
           <button type="button" id="sendReportBtn">📤 שליחת דוח</button>
           <button type="button" id="excelBtn">📊 ייצוא לאקסל</button>
           <hr>
+          <button type="button" id="trashBtn">🗑️ סל מחזור ויומן שינויים</button>
+          <hr>
           <button type="button" id="saveAsBtn">💾 שמירה כקובץ חדש</button>
           <button type="button" id="switchFileBtn">📂 פתיחת קובץ אחר</button>
           <hr>
@@ -1070,6 +1081,20 @@
     <div class="modal-actions">
       <button id="renewCancel">ביטול</button>
       <button class="primary" id="renewSave">שמירה</button>
+    </div>
+  </div>
+</div>
+
+<!-- Trash and change log -->
+<div class="modal-overlay" id="trashModalOverlay" style="display:none;">
+  <div class="modal" style="width:560px">
+    <h2>🗑️ סל מחזור ויומן שינויים</h2>
+    <h3 class="trash-h">פריטים שנמחקו (נשמרים 30 יום)</h3>
+    <div id="trashList" class="trash-list"></div>
+    <h3 class="trash-h">שינויים אחרונים</h3>
+    <div id="logList" class="trash-list log-list"></div>
+    <div class="modal-actions">
+      <button id="trashClose">סגירה</button>
     </div>
   </div>
 </div>
@@ -1233,6 +1258,31 @@
 
 <script>
 let items = [];
+/* Trash and change log, kept inside the data file:
+   trash — deleted items (with deletedAt), restorable for TRASH_DAYS days;
+   changeLog — recent changes ({ at, text }), newest first, up to LOG_MAX. */
+let trash = [];
+let changeLog = [];
+const TRASH_DAYS = 30;
+const LOG_MAX = 200;
+function logChange(text) {
+  changeLog.unshift({ at: new Date().toISOString(), text });
+  if (changeLog.length > LOG_MAX) changeLog.length = LOG_MAX;
+}
+function purgeTrash() {
+  const cutoff = Date.now() - TRASH_DAYS * 86400000;
+  trash = trash.filter(t => !(Date.parse(t.deletedAt) < cutoff));
+}
+// New ids never reuse one that is in the trash, so a restored item keeps its own id
+function nextItemId() {
+  const num = id => { const m = typeof id === 'string' && id.match(/^item_(\d+)$/); return m ? parseInt(m[1], 10) : 0; };
+  const max = [...items, ...trash].reduce((mx, i) => Math.max(mx, num(i.id)), 0);
+  return `item_${String(max + 1).padStart(3, '0')}`;
+}
+// Short description of an item for the log: "סליין 10 מ"ל (10/21)"
+function itemLabel(i) {
+  return `"${i.name}"` + (i.expiry ? ` (${formatExpiryShort(i.expiry)})` : '');
+}
 let categories = ['כללי'];
 let customTitleText = 'התיק שלי';
 let fileHandle = null;
@@ -1670,13 +1720,17 @@ document.getElementById('modalSave').onclick = async () => {
 
   if (editingId) {
     const item = items.find(i => i.id === editingId);
+    const changes = [];
+    if (item.name !== name) changes.push(`שם: "${item.name}" ← "${name}"`);
+    if ((item.quantity ?? null) !== quantity) changes.push(`כמות: ${item.quantity ?? '—'} ← ${quantity ?? '—'}`);
+    if ((item.expiry || null) !== expiry) changes.push(`תוקף: ${item.expiry ? formatExpiryShort(item.expiry) : '—'} ← ${expiry ? formatExpiryShort(expiry) : '—'}`);
+    if (item.category !== category) changes.push(`קטגוריה: ${item.category} ← ${category}`);
     item.name = name; item.category = category; item.expiry = expiry; item.quantity = quantity;
+    if (changes.length) logChange(`עודכן "${name}": ${changes.join(', ')}`);
   } else {
-    const maxNum = items.reduce((max, i) => {
-      const m = (i.id || '').match(/item_(\d+)/);
-      return m ? Math.max(max, parseInt(m[1], 10)) : max;
-    }, 0);
-    items.push({ id: `item_${String(maxNum + 1).padStart(3, '0')}`, name, quantity, category, expiry });
+    const added = { id: nextItemId(), name, quantity, category, expiry };
+    items.push(added);
+    logChange(`נוסף ${itemLabel(added)}`);
   }
   closeModal();
   render();
@@ -1697,11 +1751,17 @@ async function deleteItem(id) {
   const index = items.findIndex(i => i.id === id);
   if (index < 0) return;
   const [removed] = items.splice(index, 1);
+  const entry = { ...removed, deletedAt: new Date().toISOString() };
+  purgeTrash();
+  trash.unshift(entry);
+  logChange(`נמחק ${itemLabel(removed)}`);
   render();
   autoSave();
-  showToast(`הפריט "${removed.name}" נמחק`, () => {
+  showToast(`הפריט "${removed.name}" נמחק (אפשר לשחזר מסל המחזור)`, () => {
     if (items.some(i => i.id === removed.id)) return;
+    trash = trash.filter(t => t !== entry);
     items.splice(Math.min(index, items.length), 0, removed);
+    logChange(`בוטלה המחיקה של ${itemLabel(removed)}`);
     render();
     autoSave();
     showToast(`הפריט "${removed.name}" הוחזר`);
@@ -1793,6 +1853,8 @@ document.getElementById('renewSave').onclick = async () => {
   item.expiry = expiry;
   item.quantity = quantity;
   item.renewedAt = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  logChange(`חודש "${item.name}": תוקף ${before.expiry ? formatExpiryShort(before.expiry) : '—'} ← ${formatExpiryShort(expiry)}` +
+    ((before.quantity ?? null) !== quantity ? `, כמות ${before.quantity ?? '—'} ← ${quantity ?? '—'}` : ''));
   closeRenew();
   render();
   autoSave();
@@ -1802,11 +1864,78 @@ document.getElementById('renewSave').onclick = async () => {
     it.expiry = before.expiry;
     it.quantity = before.quantity;
     if (before.renewedAt === undefined) delete it.renewedAt; else it.renewedAt = before.renewedAt;
+    logChange(`בוטל החידוש של "${it.name}"`);
     render();
     autoSave();
     showToast('החידוש בוטל');
   });
 };
+
+/* ---------- Trash and change log window ---------- */
+const trashOverlay = document.getElementById('trashModalOverlay');
+function formatWhen(iso) {
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  return `${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()} ${d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}`;
+}
+function renderTrash() {
+  purgeTrash();
+  const tl = document.getElementById('trashList');
+  tl.innerHTML = '';
+  if (!trash.length) tl.innerHTML = '<div class="trash-empty">אין פריטים שנמחקו ב-30 הימים האחרונים</div>';
+  trash.forEach(t => {
+    const row = document.createElement('div');
+    row.className = 'trash-row';
+    const tx = document.createElement('div');
+    tx.className = 'tx';
+    const t1 = document.createElement('div');
+    t1.textContent = t.name;
+    const t2 = document.createElement('div');
+    t2.className = 't2';
+    t2.textContent = [t.category, t.expiry ? `תוקף ${formatExpiryShort(t.expiry)}` : 'ללא תוקף',
+      t.quantity != null ? `כמות ${t.quantity}` : '', `נמחק ${formatWhen(t.deletedAt)}`].filter(Boolean).join(' · ');
+    tx.append(t1, t2);
+    const btn = document.createElement('button');
+    btn.className = 'primary';
+    btn.textContent = '↩️ שחזר';
+    btn.setAttribute('aria-label', `שחזור ${t.name}`);
+    btn.onclick = () => restoreFromTrash(t);
+    row.append(tx, btn);
+    tl.appendChild(row);
+  });
+  const ll = document.getElementById('logList');
+  ll.innerHTML = '';
+  if (!changeLog.length) ll.innerHTML = '<div class="trash-empty">עוד אין שינויים רשומים</div>';
+  changeLog.forEach(e => {
+    const row = document.createElement('div');
+    row.className = 'trash-row';
+    const when = document.createElement('div');
+    when.className = 't2';
+    when.textContent = formatWhen(e.at);
+    const what = document.createElement('div');
+    what.textContent = e.text;
+    row.append(when, what);
+    ll.appendChild(row);
+  });
+}
+function restoreFromTrash(entry) {
+  trash = trash.filter(t => t !== entry);
+  const { deletedAt, ...item } = entry;
+  if (!item.id || items.some(i => i.id === item.id)) item.id = nextItemId();
+  if (item.category && !categories.includes(item.category)) categories.push(item.category);
+  items.push(item);
+  logChange(`שוחזר מסל המחזור ${itemLabel(item)}`);
+  render();
+  autoSave();
+  renderTrash();
+  showToast(`הפריט "${item.name}" שוחזר`);
+}
+document.getElementById('trashBtn').onclick = () => {
+  renderTrash();
+  trashOverlay.style.display = 'flex';
+};
+document.getElementById('trashClose').onclick = () => { trashOverlay.style.display = 'none'; };
+closeOnBackdrop(trashOverlay, () => { trashOverlay.style.display = 'none'; });
 
 /* ---------- Custom title ---------- */
 const titleModalOverlay = document.getElementById('titleModalOverlay');
@@ -1827,7 +1956,9 @@ document.getElementById('titleCancel').onclick = () => titleModalOverlay.style.d
 closeOnBackdrop(titleModalOverlay, () => { titleModalOverlay.style.display = 'none'; });
 
 document.getElementById('titleSave').onclick = () => {
-  customTitleText = titleInput.value.trim() || 'התיק שלי';
+  const newTitle = titleInput.value.trim() || 'התיק שלי';
+  if (newTitle !== customTitleText) logChange(`שם התיק: "${customTitleText}" ← "${newTitle}"`);
+  customTitleText = newTitle;
   customTitleLabelEl.textContent = customTitleText;
   titleModalOverlay.style.display = 'none';
   autoSave();
@@ -1883,6 +2014,7 @@ function renderCatsList() {
       }
       categories = categories.filter(c => c !== cat);
       if (categories.length === 0) categories = ['כללי'];
+      logChange(`נמחקה הקטגוריה "${cat}"` + (count ? ` (${count} פריטים הועברו ל"כללי")` : ''));
       renderCatsList();
       render();
       autoSave();
@@ -1951,6 +2083,7 @@ document.getElementById('renameCatSave').onclick = () => {
   if (!trimmed || trimmed === cat) { closeRenameCatModal(); return; }
   if (categories.includes(trimmed)) { setFieldError(renameCatInput, 'קטגוריה בשם זה כבר קיימת'); renameCatInput.focus(); return; }
   categories = categories.map(c => c === cat ? trimmed : c);
+  logChange(`שם קטגוריה: "${cat}" ← "${trimmed}"`);
   items.forEach(i => { if (i.category === cat) i.category = trimmed; });
   closeRenameCatModal();
   renderCatsList();
@@ -2239,7 +2372,10 @@ async function renderRecents() {
 }
 
 function serializeData() {
-  return JSON.stringify({ title: customTitleText, categories, items }, null, 2);
+  const data = { title: customTitleText, categories, items };
+  if (trash.length) data.trash = trash;
+  if (changeLog.length) data.log = changeLog;
+  return JSON.stringify(data, null, 2);
 }
 
 function syncCategoriesFromItems() {
@@ -2317,6 +2453,15 @@ function parseData(text, checkOnly = false) {
   items = validItems;
   categories = Array.isArray(rawCategories) ? rawCategories : ['כללי'];
   customTitleText = typeof rawTitle === 'string' && rawTitle.trim() ? rawTitle : 'התיק שלי';
+  const obj = Array.isArray(parsed) ? {} : parsed;
+  trash = Array.isArray(obj.trash)
+    ? obj.trash.filter(t => t && typeof t === 'object' && typeof t.name === 'string')
+        .map(t => ({ ...t, expiry: normalizeExpiry(t.expiry) }))
+    : [];
+  changeLog = Array.isArray(obj.log)
+    ? obj.log.filter(e => e && typeof e.text === 'string' && typeof e.at === 'string').slice(0, LOG_MAX)
+    : [];
+  purgeTrash();
   syncCategoriesFromItems();
   customTitleLabelEl.textContent = customTitleText;
 }
@@ -2741,6 +2886,8 @@ document.getElementById('createNewBtn').onclick = () => {
   if (!hasFS) {
     // No file access (iPhone, Firefox...): start an empty kit; the data is saved by downloading a file
     items = [];
+    trash = [];
+    changeLog = [];
     categories = ['כללי'];
     customTitleText = 'התיק שלי';
     customTitleLabelEl.textContent = customTitleText;
@@ -2767,6 +2914,8 @@ document.getElementById('newFileInfoContinue').onclick = async () => {
       types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
     });
     items = [];
+    trash = [];
+    changeLog = [];
     categories = ['כללי'];
     customTitleText = 'התיק שלי';
     customTitleLabelEl.textContent = customTitleText;
