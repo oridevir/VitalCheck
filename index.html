@@ -3114,11 +3114,26 @@ let cloudConflictOpen = false;
 const CLOUD_SAVE_DELAY = 2000;
 const cloudProvider = id => Cloud.providers[id];
 const docName = () => cloudDoc ? cloudDoc.name : fileHandle ? fileHandle.name : currentFileName;
-const getPending = () => Cloud.store.get('pending');
-const setPending = p => Cloud.store.set('pending', p);
+/* Changes not yet confirmed by the cloud, kept per kit ("provider:id") — so unsent changes
+   of one kit survive switching to another kit. Also kept in memory, in case the browser's
+   storage is full or blocked (private mode). */
+const pendingMem = {};
+const pendingKey = (pid, id) => pid + ':' + id;
+function getPending(pid, id) {
+  const all = Cloud.store.get('pendings') || {};
+  return all[pendingKey(pid, id)] || pendingMem[pendingKey(pid, id)] || null;
+}
+function setPending(pid, id, p) {
+  const k = pendingKey(pid, id);
+  if (p) pendingMem[k] = p; else delete pendingMem[k];
+  const all = Cloud.store.get('pendings') || {};
+  if (p) all[k] = p; else delete all[k];
+  Cloud.store.set('pendings', Object.keys(all).length ? all : null);
+}
 function cloudHasPending() {
-  const p = getPending();
-  return !!(cloudDoc && p && p.provider === cloudDoc.provider && p.id === cloudDoc.id && p.text !== cloudDoc.savedText);
+  if (!cloudDoc) return false;
+  const p = getPending(cloudDoc.provider, cloudDoc.id);
+  return !!(p && p.text !== cloudDoc.savedText);
 }
 const timeNow = () => new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
 
@@ -3148,7 +3163,7 @@ function scheduleCloudSave() {
   const text = serializeData();
   // baseText: the cloud content these changes were made on (Drive's version number also
   // changes by itself on Google's side, so the content is what tells if someone else changed it)
-  setPending({ provider: cloudDoc.provider, id: cloudDoc.id, baseVersion: cloudDoc.version, baseText: cloudDoc.savedText, text, at: Date.now() });
+  setPending(cloudDoc.provider, cloudDoc.id, { provider: cloudDoc.provider, id: cloudDoc.id, baseVersion: cloudDoc.version, baseText: cloudDoc.savedText, text, at: Date.now() });
   if (!/error/.test(fileStatus.className)) cloudStatus('wait', '⏳ שומר בענן…');
   clearTimeout(cloudTimer);
   cloudTimer = setTimeout(cloudSaveNow, CLOUD_SAVE_DELAY);
@@ -3168,14 +3183,14 @@ async function doCloudSave() {
   if (!doc || cloudConflictOpen) return;
   const prov = cloudProvider(doc.provider);
   const text = serializeData();
-  if (text === doc.savedText) { setPending(null); showCloudSaved(); return; }
+  if (text === doc.savedText) { setPending(doc.provider, doc.id, null); showCloudSaved(); return; }
   try {
     const r = await prov.write(doc.id, text, doc.version);
     if (doc !== cloudDoc) return;
     doc.version = r.version;
     doc.savedText = text;
-    const p = getPending();
-    if (p && p.id === doc.id && p.text === text) setPending(null);
+    const p = getPending(doc.provider, doc.id);
+    if (p && p.text === text) setPending(doc.provider, doc.id, null);
     if (serializeData() !== text) { scheduleCloudSave(); return; }   // more changes meanwhile
     showCloudSaved();
   } catch (e) {
@@ -3198,6 +3213,11 @@ async function doCloudSave() {
     if (e.code === 'notfound') {
       cloudStatus('error', `⚠️ הקובץ "${doc.name}" לא נמצא בענן (אולי נמחק או הועבר). השינויים שמורים במכשיר הזה.`,
         { label: '💾 שמור אותם כתיק חדש בענן', onclick: () => cloudSaveAsNew() });
+      return;
+    }
+    if (e.code === 'space') {
+      cloudStatus('error', `⚠️ אין מקום פנוי ב${prov.label}. השינויים שמורים במכשיר הזה. פנה מקום בחשבון ואז לחץ "נסה שוב".`,
+        { label: '🔄 נסה שוב', onclick: () => cloudSaveNow() });
       return;
     }
     cloudStatus('error', '⚠️ השמירה בענן נכשלה. השינויים שמורים במכשיר הזה.', { label: '🔄 נסה שוב', onclick: () => cloudSaveNow() });
@@ -3224,7 +3244,7 @@ async function handleCloudConflict(doc, myText) {
   // Same content (e.g. our own save that left while the page was closing): nothing to choose
   if (latest.text === myText || latest.text === doc.savedText) {
     doc.version = latest.version;
-    if (latest.text === myText) { doc.savedText = myText; setPending(null); showCloudSaved(); return; }
+    if (latest.text === myText) { doc.savedText = myText; setPending(doc.provider, doc.id, null); showCloudSaved(); return; }
     return doCloudSave();   // already inside the save queue: save directly (queueing again would wait for itself)
   }
   cloudConflictOpen = true;
@@ -3246,7 +3266,7 @@ async function handleCloudConflict(doc, myText) {
   catch (e) { showMessage('הקובץ פגום', 'התיק עודכן במכשיר אחר אבל התוכן שלו לא תקין. לא שמרתי עליו כלום.'); return; }
   doc.version = latest.version;
   doc.savedText = latest.text;
-  setPending(null);
+  setPending(doc.provider, doc.id, null);
   render();
   cloudStatus('ok', `🔄 נטענה הגרסה העדכנית מהענן (${timeNow()})`);
   showMessage('נטענה הגרסה העדכנית', 'השינוי האחרון שעשית כאן לא נשמר. אם צריך, בצע אותו שוב. מה שהיה על המסך שמור גם ב"שחזור מגיבוי" במסך הפתיחה.');
@@ -3281,7 +3301,7 @@ document.addEventListener('visibilitychange', () => {
 // The page is closing: last attempt (Dropbox only — it writes only if the file is unchanged)
 window.addEventListener('pagehide', () => {
   if (!cloudDoc || !cloudHasPending()) return;
-  cloudProvider(cloudDoc.provider).writeOnExit(cloudDoc.id, getPending().text, cloudDoc.version);
+  cloudProvider(cloudDoc.provider).writeOnExit(cloudDoc.id, getPending(cloudDoc.provider, cloudDoc.id).text, cloudDoc.version);
 });
 window.addEventListener('online', () => { if (cloudHasPending()) cloudSaveNow(); });
 // Google gives one-hour sign-ins: renew inside a click, before it runs out
@@ -3315,8 +3335,8 @@ async function openCloudDoc(pid, id, opts = {}) {
   try { parseData(r.text, true); }
   catch (e) { showMessage('הקובץ פגום', 'הקובץ שנבחר אינו תיק תקין של VitalCheck.'); return false; }
   let text = r.text;
-  const p = getPending();
-  if (p && p.provider === pid && p.id === r.id && p.text !== r.text) {
+  const p = getPending(pid, r.id);
+  if (p && p.text !== r.text) {
     if (r.text === p.baseText || String(p.baseVersion) === String(r.version)) text = p.text;
     else {
       const choice = await showDialog({
@@ -3331,7 +3351,7 @@ async function openCloudDoc(pid, id, opts = {}) {
       if (choice === 'local') text = p.text;
     }
   }
-  if (text === r.text && p && p.id === r.id) setPending(null);
+  if (text === r.text && p) setPending(pid, r.id, null);
   parseData(text);
   fileHandle = null;
   currentFileName = null;
@@ -3380,7 +3400,7 @@ async function cloudCreate(pid, title, text) {
 async function cloudSaveAsNew() {
   const pid = cloudDoc.provider;
   const text = serializeData();
-  setPending(null);
+  setPending(cloudDoc.provider, cloudDoc.id, null);
   leaveCloudDoc();
   await cloudCreate(pid, customTitleText, text);
 }

@@ -38,8 +38,10 @@
   async function errorFrom(res, where) {
     let body = '';
     try { body = await res.text(); } catch (e) {}
-    const code = res.status === 401 ? 'auth' : res.status === 404 ? 'notfound' : res.status === 409 && /conflict/.test(body) ? 'conflict'
-      : res.status === 409 && /not_found/.test(body) ? 'notfound' : res.status === 429 || res.status >= 500 ? 'network' : 'other';
+    const code = /insufficient_space|storageQuotaExceeded|quotaExceeded/.test(body) ? 'space'
+      : res.status === 401 ? 'auth' : res.status === 404 ? 'notfound' : res.status === 409 && /conflict/.test(body) ? 'conflict'
+      : res.status === 409 && /not_found/.test(body) ? 'notfound'
+      : res.status === 429 || res.status >= 500 || (res.status === 403 && /rateLimit|too_many/i.test(body)) ? 'network' : 'other';
     return new CloudError(`${where}: ${res.status} ${body.slice(0, 200)}`, code, { status: res.status });
   }
 
