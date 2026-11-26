@@ -3212,9 +3212,8 @@ async function handleCloudConflict(doc, myText) {
   // Same content (e.g. our own save that left while the page was closing): nothing to choose
   if (latest.text === myText || latest.text === doc.savedText) {
     doc.version = latest.version;
-    if (latest.text === myText) { doc.savedText = myText; setPending(null); showCloudSaved(); }
-    else cloudSaveNow();
-    return;
+    if (latest.text === myText) { doc.savedText = myText; setPending(null); showCloudSaved(); return; }
+    return doCloudSave();   // already inside the save queue: save directly (queueing again would wait for itself)
   }
   cloudConflictOpen = true;
   const choice = await showDialog({
@@ -3228,7 +3227,7 @@ async function handleCloudConflict(doc, myText) {
   });
   cloudConflictOpen = false;
   if (doc !== cloudDoc) return;
-  if (choice === 'overwrite') { doc.version = latest.version; return cloudSaveNow(); }
+  if (choice === 'overwrite') { doc.version = latest.version; return doCloudSave(); }   // inside the queue — see above
   forceNewBackup = true;
   backupToLocalStorage();   // what was on screen stays in "שחזור מגיבוי"
   try { parseData(latest.text); }
