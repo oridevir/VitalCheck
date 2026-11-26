@@ -435,7 +435,19 @@
   .cloud-note { font-size: 12.5px; color: var(--muted); margin-top: 10px; }
   .cloud-resume { margin-top: 10px; }
   .cloud-resume button { width: 100%; }
-  .cloud-more { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+  .cloud-pick-h { font-weight: 700; font-size: 15px; color: var(--navy); margin: 4px 0 8px; }
+  .cloud-kits { display: flex; flex-direction: column; gap: 10px; max-height: 50vh; overflow-y: auto; padding: 2px; }
+  .cloud-kit { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: #fff; border: 2px solid var(--navy); border-radius: 12px; cursor: pointer; text-align: right; }
+  .cloud-kit:hover, .cloud-kit:focus-visible { background: #f3fbf8; border-color: var(--teal-dark); outline: none; }
+  .cloud-kit .ic { font-size: 22px; }
+  .cloud-kit .tx { flex: 1; min-width: 0; }
+  .cloud-kit .t1 { font-size: 17px; font-weight: 700; color: var(--navy); overflow-wrap: anywhere; }
+  .cloud-kit .t2 { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+  .cloud-kit .go { font-size: 22px; color: var(--teal-dark); font-weight: 700; }
+  .cloud-new-toggle { margin-top: 14px; width: 100%; background: none; border: 1.5px dashed var(--line); color: var(--ink); border-radius: 10px; padding: 10px; font-size: 14px; cursor: pointer; }
+  .cloud-new { margin-top: 10px; }
+  .cloud-more { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+  .cloud-more button { background: none; border: none; color: var(--muted); text-decoration: underline; font-size: 13.5px; min-height: 36px; cursor: pointer; }
   .trash-row.clickable { cursor: pointer; }
   .trash-row.clickable:hover, .trash-row.clickable:focus-visible { background: var(--good); }
 
@@ -1115,12 +1127,15 @@
 <div class="modal-overlay" id="cloudModalOverlay" style="display:none;">
   <div class="modal" style="width:560px">
     <h2 id="cloudTitle">☁️ התיקים שלי בענן</h2>
+    <div class="cloud-pick-h" id="cloudPickHeading">בחר תיק לפתיחה</div>
     <div id="cloudListStatus" class="trash-empty" style="display:none;"></div>
-    <div id="cloudList" class="trash-list"></div>
-    <h3 class="trash-h">תיק חדש</h3>
-    <div style="display:flex; gap:8px;">
-      <input type="text" id="cloudNewName" placeholder="שם התיק, למשל: תיק כונן" maxlength="60" style="flex:1;" aria-label="שם התיק החדש">
-      <button type="button" class="primary" id="cloudCreateBtn" style="white-space:nowrap;">✨ צור</button>
+    <div id="cloudList" class="cloud-kits"></div>
+    <button type="button" class="cloud-new-toggle" id="cloudNewToggle" aria-expanded="false">➕ תיק חדש</button>
+    <div class="cloud-new" id="cloudNewBox" style="display:none;">
+      <div style="display:flex; gap:8px;">
+        <input type="text" id="cloudNewName" placeholder="שם התיק, למשל: תיק כונן" maxlength="60" style="flex:1;" aria-label="שם התיק החדש">
+        <button type="button" class="primary" id="cloudCreateBtn" style="white-space:nowrap;">✨ צור</button>
+      </div>
     </div>
     <div class="cloud-more">
       <button type="button" id="cloudPickBtn" style="display:none;">🔎 בחר קובץ קיים מהדרייב</button>
@@ -3472,6 +3487,8 @@ async function openCloudChooser(pid) {
   document.getElementById('cloudPickBtn').style.display = pid === 'gdrive' ? '' : 'none';
   document.getElementById('cloudDisconnectBtn').textContent = `התנתק מ${prov.label}`;
   document.getElementById('cloudNewName').value = '';
+  setNewKitOpen(false);
+  document.getElementById('cloudPickHeading').style.display = 'none';
   const list = document.getElementById('cloudList');
   const st = document.getElementById('cloudListStatus');
   list.innerHTML = '';
@@ -3495,24 +3512,20 @@ async function openCloudChooser(pid) {
   st.style.display = files.length ? 'none' : '';
   st.textContent = 'עוד אין כאן תיקים. צור תיק חדש למטה' + (pid === 'gdrive' ? ', או בחר קובץ קיים מהדרייב.' : '.');
   files.forEach(f => {
-    const row = document.createElement('div');
-    row.className = 'trash-row clickable';
-    row.setAttribute('role', 'button');
-    row.tabIndex = 0;
-    const tx = document.createElement('div');
-    tx.className = 'tx';
-    const t1 = document.createElement('div');
-    t1.textContent = '📋 ' + f.name.replace(/\.json$/i, '');
-    const t2 = document.createElement('div');
-    t2.className = 't2';
-    t2.textContent = f.modified ? `עודכן ${formatWhen(f.modified)}` : '';
-    tx.append(t1, t2);
-    row.append(tx);
-    const open = () => cloudOpenFromChooser(pid, f.id);
-    row.onclick = open;
-    row.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } };
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'cloud-kit';
+    const isOpen = cloudDoc && cloudDoc.provider === pid && cloudDoc.id === f.id;
+    row.innerHTML = '<span class="ic" aria-hidden="true">📋</span><span class="tx"><span class="t1"></span><br><span class="t2"></span></span><span class="go" aria-hidden="true">‹</span>';
+    row.querySelector('.t1').textContent = kitLabel(f.name);
+    row.querySelector('.t2').textContent = (isOpen ? 'פתוח עכשיו · ' : '') + (f.modified ? `עודכן ${formatWhen(f.modified)}` : '');
+    row.setAttribute('aria-label', `פתח את התיק ${kitLabel(f.name)}`);
+    row.onclick = () => cloudOpenFromChooser(pid, f.id);
     list.appendChild(row);
   });
+  // No kits yet: the "new kit" field is open right away
+  setNewKitOpen(!files.length);
+  document.getElementById('cloudPickHeading').style.display = files.length ? '' : 'none';
 }
 
 // Before leaving the open kit: send what is waiting, and ask if it still can't be sent
@@ -3536,6 +3549,14 @@ async function cloudOpenFromChooser(pid, id) {
   cloudOverlay.style.display = 'none';
   await openCloudDoc(pid, id);
 }
+
+function setNewKitOpen(open) {
+  document.getElementById('cloudNewBox').style.display = open ? '' : 'none';
+  const t = document.getElementById('cloudNewToggle');
+  t.style.display = open ? 'none' : '';
+  t.setAttribute('aria-expanded', String(open));
+}
+document.getElementById('cloudNewToggle').onclick = () => { setNewKitOpen(true); document.getElementById('cloudNewName').focus(); };
 
 document.getElementById('cloudDropboxBtn').onclick = () => cloudButton('dropbox');
 document.getElementById('cloudGdriveBtn').onclick = () => cloudButton('gdrive');
