@@ -3173,9 +3173,12 @@ function cloudSaveNow() {
   cloudChain = cloudChain.then(doCloudSave, doCloudSave);
   return cloudChain;
 }
+// Retry soon after a short glitch, then less often: 3s, 6s, 12s, 24s, 30s…
+let cloudRetryDelay = 3000;
 function scheduleCloudRetry() {
   clearTimeout(cloudRetryTimer);
-  cloudRetryTimer = setTimeout(() => { if (cloudHasPending()) cloudSaveNow(); }, 20000);
+  cloudRetryTimer = setTimeout(() => { if (cloudHasPending()) cloudSaveNow(); }, cloudRetryDelay);
+  cloudRetryDelay = Math.min(cloudRetryDelay * 2, 30000);
 }
 
 async function doCloudSave() {
@@ -3191,6 +3194,7 @@ async function doCloudSave() {
     doc.savedText = text;
     const p = getPending(doc.provider, doc.id);
     if (p && p.text === text) setPending(doc.provider, doc.id, null);
+    cloudRetryDelay = 3000;
     if (serializeData() !== text) { scheduleCloudSave(); return; }   // more changes meanwhile
     showCloudSaved();
   } catch (e) {
