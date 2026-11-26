@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- אבטחה: הדפדפן מריץ קוד ושולח נתונים רק לאתר עצמו, לדרופבוקס ולגוגל (ראו docs/plan-dropbox-direct.md) -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com https://apis.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://accounts.google.com https://www.gstatic.com; connect-src 'self' https://api.dropboxapi.com https://content.dropboxapi.com https://www.googleapis.com https://content.googleapis.com https://accounts.google.com; frame-src https://accounts.google.com https://docs.google.com https://drive.google.com https://content.googleapis.com; img-src 'self' data: blob: https:; font-src 'self' https://fonts.gstatic.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <title>VitalCheck — מעקב תקפים ציוד כונן רפואי</title>
 <meta name="description" content="מעקב אחר תאריכי תוקף ומלאי של ציוד רפואי — לתיק כונן, אמבולנס או מרפאה. מסמן בצבעים מה כבר פג ומה עומד לפוג, ומפיק דוח PDF מסודר. פותח ע&quot;י ד&quot;ר אורי דביר.">
 <link rel="canonical" href="https://vitalcheck.drdevir.com/">
@@ -424,6 +426,18 @@
   }
 
   #restoreBtn { display: none; }
+  .cloud-box { margin-top: 22px; padding: 16px; border: 2px solid var(--teal); border-radius: 14px; background: #f3fbf8; }
+  .cloud-title { font-weight: 700; font-size: 16px; color: var(--navy); margin-bottom: 10px; }
+  .cloud-rec { display: block; font-weight: 400; font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .cloud-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+  .cloud-btn { flex: 1 1 180px; min-height: 48px; font-size: 15px; font-weight: 600; background: #fff; border: 1.5px solid var(--navy); color: var(--navy); border-radius: 10px; cursor: pointer; }
+  .cloud-btn.connected { background: var(--navy); color: #fff; }
+  .cloud-note { font-size: 12.5px; color: var(--muted); margin-top: 10px; }
+  .cloud-resume { margin-top: 10px; }
+  .cloud-resume button { width: 100%; }
+  .cloud-more { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+  .trash-row.clickable { cursor: pointer; }
+  .trash-row.clickable:hover, .trash-row.clickable:focus-visible { background: var(--good); }
 
   /* ---------- Table ---------- */
   table {
@@ -944,6 +958,7 @@
           <button type="button" id="excelBtn">📊 ייצוא לאקסל</button>
           <hr>
           <button type="button" id="trashBtn">🗑️ סל מחזור ויומן שינויים</button>
+          <button type="button" id="cloudMenuBtn" style="display:none;">☁️ התיקים שלי בענן</button>
           <hr>
           <button type="button" id="saveAsBtn">💾 שמירה כקובץ חדש</button>
           <button type="button" id="switchFileBtn">📂 פתיחת קובץ אחר</button>
@@ -1005,6 +1020,17 @@
       <div id="recentList"></div>
       <div class="recent-sep">או</div>
     </div>
+
+    <div class="cloud-box" id="cloudBox">
+      <div class="cloud-title">☁️ שמירה בענן <span class="cloud-rec">מומלץ — אותו תיק בטלפון ובמחשב</span></div>
+      <div class="cloud-btns">
+        <button type="button" class="cloud-btn" id="cloudDropboxBtn"></button>
+        <button type="button" class="cloud-btn" id="cloudGdriveBtn"></button>
+      </div>
+      <div class="cloud-resume" id="cloudResume" style="display:none;"></div>
+      <div class="cloud-note">מתחברים פעם אחת בכל מכשיר. האתר רואה רק את התיקים שלו, ולא שום קובץ אחר שלך.</div>
+    </div>
+    <div class="recent-sep">או עבודה עם קובץ במכשיר</div>
 
     <div class="welcome-buttons">
       <button class="primary" id="createNewBtn">✨ התחלה חדשה — צור קובץ נתונים</button>
@@ -1081,6 +1107,28 @@
     <div class="modal-actions">
       <button id="renewCancel">ביטול</button>
       <button class="primary" id="renewSave">שמירה</button>
+    </div>
+  </div>
+</div>
+
+<!-- Cloud kits (Dropbox / Google Drive) -->
+<div class="modal-overlay" id="cloudModalOverlay" style="display:none;">
+  <div class="modal" style="width:560px">
+    <h2 id="cloudTitle">☁️ התיקים שלי בענן</h2>
+    <div id="cloudListStatus" class="trash-empty" style="display:none;"></div>
+    <div id="cloudList" class="trash-list"></div>
+    <h3 class="trash-h">תיק חדש</h3>
+    <div style="display:flex; gap:8px;">
+      <input type="text" id="cloudNewName" placeholder="שם התיק, למשל: תיק כונן" maxlength="60" style="flex:1;" aria-label="שם התיק החדש">
+      <button type="button" class="primary" id="cloudCreateBtn" style="white-space:nowrap;">✨ צור</button>
+    </div>
+    <div class="cloud-more">
+      <button type="button" id="cloudPickBtn" style="display:none;">🔎 בחר קובץ קיים מהדרייב</button>
+      <button type="button" id="cloudImportBtn">📤 העבר לענן קובץ קיים מהמכשיר</button>
+    </div>
+    <div class="modal-actions">
+      <button type="button" id="cloudDisconnectBtn" class="danger-btn">התנתק</button>
+      <button type="button" id="cloudClose">סגירה</button>
     </div>
   </div>
 </div>
@@ -1256,6 +1304,7 @@
   </div>
 </div>
 
+<script src="cloud.js"></script>
 <script>
 let items = [];
 /* Trash and change log, kept inside the data file:
@@ -1963,6 +2012,7 @@ document.getElementById('titleSave').onclick = () => {
   titleModalOverlay.style.display = 'none';
   autoSave();
   if (fileHandle) addRecent(fileHandle);
+  if (cloudDoc) rememberCloudDoc();
 };
 
 /* ---------- Category manager ---------- */
@@ -2108,6 +2158,7 @@ document.getElementById('startOverBtn').onclick = async () => {
     if (!ok) return;
   }
   allowUnload = true;
+  Cloud.store.set('last', null);
   try {
     const db = await openDB();
     db.transaction('handles', 'readwrite').objectStore('handles').delete('dataFile');
@@ -2132,7 +2183,7 @@ function buildPrintReport() {
     filters.push(`סטטוס: ${names.join(' + ')}`);
   }
 
-  const fileName = fileHandle ? fileHandle.name : (currentFileName || 'לא שמור בקובץ');
+  const fileName = docName() || 'לא שמור בקובץ';
   const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
   // Group by urgency so the report reads correctly even on a black & white printer
@@ -2524,7 +2575,7 @@ function backupToLocalStorage() {
     const entry = {
       time: now.toISOString(),
       title: customTitleText,
-      file: fileHandle ? fileHandle.name : currentFileName,
+      file: docName(),
       count: items.length,
       data: serializeData()
     };
@@ -2554,7 +2605,9 @@ let allowUnload = false;
 let saveFailed = false;
 let cleanText = null;
 function hasUnsavedData() {
-  if (!items.length || appContent.style.display === 'none') return false;
+  if (appContent.style.display === 'none') return false;
+  if (cloudDoc) return cloudHasPending();
+  if (!items.length) return false;
   if (fileHandle) return saveFailed || savesPending > 0;
   return cleanText === null || serializeData() !== cleanText;
 }
@@ -2599,6 +2652,15 @@ function showConnectedStatus(name, prefix = 'מחובר לקובץ') {
 }
 
 async function saveAsNewFile() {
+  if (cloudDoc) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([serializeData()], { type: 'application/json' }));
+    a.download = safeFileName(customTitleText);
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    showToast('הורד עותק של התיק למכשיר. התיק עצמו ממשיך להישמר בענן');
+    return;
+  }
   const safeTitle = customTitleText.replace(/[\\/:*?"<>|]/g, '').trim() || 'data';
   const suggestedName = `vitalcheck-${safeTitle}.json`;
   if (!hasFS) {
@@ -2661,6 +2723,7 @@ async function readFileText(handle) {
 // Saves run one after another, so a quick second change can't be overtaken by an older one
 function autoSave() {
   backupToLocalStorage();
+  if (cloudDoc) { scheduleCloudSave(); return Promise.resolve(); }
   if (!fileHandle) {
     if (hasUnsavedData()) showUnsavedStatus(hasFS ? 'יש שינויים שלא נשמרו בקובץ' : 'יש שינויים שעוד לא הורדו לקובץ');
     return Promise.resolve();
@@ -2837,6 +2900,7 @@ async function loadFromHandle(handle, canPrompt = true) {
 
   parseData(text);
 
+  leaveCloudDoc();
   fileHandle = handle;
   setKnown(text);
   saveFailed = false;
@@ -2885,6 +2949,7 @@ function showPermissionDenied(handle) {
 document.getElementById('createNewBtn').onclick = () => {
   if (!hasFS) {
     // No file access (iPhone, Firefox...): start an empty kit; the data is saved by downloading a file
+    leaveCloudDoc();
     items = [];
     trash = [];
     changeLog = [];
@@ -2913,6 +2978,7 @@ document.getElementById('newFileInfoContinue').onclick = async () => {
       suggestedName: 'vitalcheck-data.json',
       types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
     });
+    leaveCloudDoc();
     items = [];
     trash = [];
     changeLog = [];
@@ -2949,6 +3015,7 @@ async function openExisting() {
           showMessage('הקובץ פגום', 'הקובץ שנטען אינו תקין או פגום. אנא בחר קובץ אחר או צור קובץ חדש.');
           return;
         }
+        leaveCloudDoc();
         fileHandle = null;
         currentFileName = file.name;
         cleanText = serializeData();
@@ -2975,7 +3042,7 @@ async function openExisting() {
 
 document.getElementById('openExistingBtn').onclick = () => openExisting();
 document.getElementById('switchFileBtn').onclick = async () => {
-  if (hasUnsavedData() && !(await confirmDiscardUnsaved())) return;
+  if (!(await readyToSwitch())) return;
   openExisting();
 };
 document.getElementById('saveAsBtn').onclick = saveAsNewFile;
@@ -2996,6 +3063,7 @@ function restoreBackup(entry) {
     showMessage('הגיבוי פגום', 'הגיבוי הזה פגום ולא ניתן לשחזר אותו. נסה גיבוי אחר.');
     return;
   }
+  leaveCloudDoc();
   fileHandle = null;
   currentFileName = null;
   cleanText = null;
@@ -3033,6 +3101,490 @@ restoreBtn.onclick = () => {
 document.getElementById('backupsClose').onclick = () => backupsModalOverlay.style.display = 'none';
 closeOnBackdrop(backupsModalOverlay, () => { backupsModalOverlay.style.display = 'none'; });
 
+/* ---------- Cloud kits: Dropbox / Google Drive (cloud.js) ----------
+   The kit lives in the user's own cloud. Changes are saved 2 seconds after the last
+   one (several changes = one save), right away when leaving the tab, and kept on the
+   device ("pending") until the cloud confirms — through no internet, an expired sign-in
+   or a closed tab. A save is accepted only if the file was not changed elsewhere
+   meanwhile (version check); otherwise the "changed on another device" window. */
+const Cloud = window.VCCloud;
+let cloudDoc = null;          // { provider, id, name, version, savedText }
+let cloudTimer = null, cloudRetryTimer = null, cloudChain = Promise.resolve();
+let cloudConflictOpen = false;
+const CLOUD_SAVE_DELAY = 2000;
+const cloudProvider = id => Cloud.providers[id];
+const docName = () => cloudDoc ? cloudDoc.name : fileHandle ? fileHandle.name : currentFileName;
+const getPending = () => Cloud.store.get('pending');
+const setPending = p => Cloud.store.set('pending', p);
+function cloudHasPending() {
+  const p = getPending();
+  return !!(cloudDoc && p && p.provider === cloudDoc.provider && p.id === cloudDoc.id && p.text !== cloudDoc.savedText);
+}
+const timeNow = () => new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+
+function cloudStatus(kind, text, button) {
+  fileStatus.innerHTML = '';
+  fileStatus.className = 'file-status ' + (kind === 'ok' ? 'connected' : kind === 'wait' ? 'notice' : 'error');
+  const t = document.createElement('div');
+  t.textContent = text;
+  fileStatus.append(t);
+  if (button) {
+    const b = document.createElement('button');
+    b.className = 'primary';
+    b.textContent = button.label;
+    b.onclick = button.onclick;
+    fileStatus.append(b);
+  }
+}
+function showCloudSaved(justOpened) {
+  const label = cloudProvider(cloudDoc.provider).label;
+  cloudStatus('ok', justOpened
+    ? `☁️ מחובר ל${label}: "${cloudDoc.name}" — כל שינוי נשמר בענן אוטומטית`
+    : `✅ נשמר ב${label} בשעה ${timeNow()} — "${cloudDoc.name}"`);
+}
+
+// Every change: keep it on the device right away, send it to the cloud a moment later
+function scheduleCloudSave() {
+  const text = serializeData();
+  setPending({ provider: cloudDoc.provider, id: cloudDoc.id, baseVersion: cloudDoc.version, text, at: Date.now() });
+  if (!/error/.test(fileStatus.className)) cloudStatus('wait', '⏳ שומר בענן…');
+  clearTimeout(cloudTimer);
+  cloudTimer = setTimeout(cloudSaveNow, CLOUD_SAVE_DELAY);
+}
+function cloudSaveNow() {
+  clearTimeout(cloudTimer);
+  cloudChain = cloudChain.then(doCloudSave, doCloudSave);
+  return cloudChain;
+}
+function scheduleCloudRetry() {
+  clearTimeout(cloudRetryTimer);
+  cloudRetryTimer = setTimeout(() => { if (cloudHasPending()) cloudSaveNow(); }, 20000);
+}
+
+async function doCloudSave() {
+  const doc = cloudDoc;
+  if (!doc || cloudConflictOpen) return;
+  const prov = cloudProvider(doc.provider);
+  const text = serializeData();
+  if (text === doc.savedText) { setPending(null); showCloudSaved(); return; }
+  try {
+    const r = await prov.write(doc.id, text, doc.version);
+    if (doc !== cloudDoc) return;
+    doc.version = r.version;
+    doc.savedText = text;
+    const p = getPending();
+    if (p && p.id === doc.id && p.text === text) setPending(null);
+    if (serializeData() !== text) { scheduleCloudSave(); return; }   // more changes meanwhile
+    showCloudSaved();
+  } catch (e) {
+    if (doc !== cloudDoc) return;
+    console.warn('cloud save failed', e && e.code, e);
+    if (e.code === 'conflict') return handleCloudConflict(doc, text);
+    if (e.code === 'network') {
+      cloudStatus('wait', '📶 אין חיבור לענן כרגע. השינויים שמורים במכשיר הזה ויישלחו לבד כשהחיבור יחזור.',
+        { label: '🔄 נסה עכשיו', onclick: () => cloudSaveNow() });
+      scheduleCloudRetry();
+      return;
+    }
+    if (e.code === 'auth') {
+      cloudStatus('error', prov.id === 'gdrive'
+        ? '🔑 גוגל דרייב מבקש לאשר שוב את החיבור. השינויים שמורים במכשיר הזה.'
+        : '🔑 החיבור לדרופבוקס נותק. השינויים שמורים במכשיר הזה ויישלחו אחרי ההתחברות.',
+        { label: prov.id === 'gdrive' ? '✔️ אשר והמשך לשמור' : '🔑 התחבר שוב לדרופבוקס', onclick: () => cloudReauth(doc.provider) });
+      return;
+    }
+    if (e.code === 'notfound') {
+      cloudStatus('error', `⚠️ הקובץ "${doc.name}" לא נמצא בענן (אולי נמחק או הועבר). השינויים שמורים במכשיר הזה.`,
+        { label: '💾 שמור אותם כתיק חדש בענן', onclick: () => cloudSaveAsNew() });
+      return;
+    }
+    cloudStatus('error', '⚠️ השמירה בענן נכשלה. השינויים שמורים במכשיר הזה.', { label: '🔄 נסה שוב', onclick: () => cloudSaveNow() });
+    scheduleCloudRetry();
+  }
+}
+
+async function handleCloudConflict(doc, myText) {
+  const prov = cloudProvider(doc.provider);
+  let latest;
+  try { latest = await prov.read(doc.id); }
+  catch (e) { cloudStatus('error', '⚠️ השמירה בענן נכשלה. השינויים שמורים במכשיר הזה.', { label: '🔄 נסה שוב', onclick: () => cloudSaveNow() }); return; }
+  if (doc !== cloudDoc) return;
+  // Same content (e.g. our own save that left while the page was closing): nothing to choose
+  if (latest.text === myText || latest.text === doc.savedText) {
+    doc.version = latest.version;
+    if (latest.text === myText) { doc.savedText = myText; setPending(null); showCloudSaved(); }
+    else cloudSaveNow();
+    return;
+  }
+  cloudConflictOpen = true;
+  const choice = await showDialog({
+    title: '⚠️ התיק השתנה ממכשיר אחר',
+    html: `מאז שהתיק <strong>"${escapeHtml(doc.name)}"</strong> נפתח כאן, הוא עודכן במכשיר אחר.<br>אם תשמור עכשיו, העדכון ההוא יימחק.`,
+    stack: true,
+    buttons: [
+      { label: '🔄 טען את הגרסה העדכנית', value: 'reload', kind: 'primary' },
+      { label: 'שמור בכל זאת (ימחק את העדכון מהמכשיר האחר)', value: 'overwrite', kind: 'danger' }
+    ]
+  });
+  cloudConflictOpen = false;
+  if (doc !== cloudDoc) return;
+  if (choice === 'overwrite') { doc.version = latest.version; return cloudSaveNow(); }
+  forceNewBackup = true;
+  backupToLocalStorage();   // what was on screen stays in "שחזור מגיבוי"
+  try { parseData(latest.text); }
+  catch (e) { showMessage('הקובץ פגום', 'התיק עודכן במכשיר אחר אבל התוכן שלו לא תקין. לא שמרתי עליו כלום.'); return; }
+  doc.version = latest.version;
+  doc.savedText = latest.text;
+  setPending(null);
+  render();
+  cloudStatus('ok', `🔄 נטענה הגרסה העדכנית מהענן (${timeNow()})`);
+  showMessage('נטענה הגרסה העדכנית', 'השינוי האחרון שעשית כאן לא נשמר. אם צריך, בצע אותו שוב. מה שהיה על המסך שמור גם ב"שחזור מגיבוי" במסך הפתיחה.');
+}
+
+// Back to the tab: show changes made on another device (only when nothing here waits to be sent)
+async function cloudCheckRemote() {
+  const doc = cloudDoc;
+  if (!doc || cloudConflictOpen || cloudHasPending()) return;
+  const prov = cloudProvider(doc.provider);
+  if (prov.id === 'gdrive' && !prov.cachedToken()) return;
+  try {
+    const v = await prov.version(doc.id);
+    if (doc !== cloudDoc || String(v) === String(doc.version) || cloudHasPending()) return;
+    const latest = await prov.read(doc.id);
+    if (doc !== cloudDoc || cloudHasPending()) return;
+    parseData(latest.text, true);
+    if (modalOverlay.style.display !== 'none') return;   // don't change the list under an open item window
+    parseData(latest.text);
+    doc.version = latest.version;
+    doc.savedText = latest.text;
+    render();
+    cloudStatus('ok', `🔄 התיק עודכן במכשיר אחר ונטען מחדש (${timeNow()})`);
+  } catch (e) { /* no connection now — the next save checks again */ }
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (!cloudDoc) return;
+  if (document.visibilityState === 'hidden') { if (cloudHasPending()) cloudSaveNow(); return; }
+  if (cloudHasPending()) cloudSaveNow(); else cloudCheckRemote();
+});
+// The page is closing: last attempt (Dropbox only — it writes only if the file is unchanged)
+window.addEventListener('pagehide', () => {
+  if (!cloudDoc || !cloudHasPending()) return;
+  cloudProvider(cloudDoc.provider).writeOnExit(cloudDoc.id, getPending().text, cloudDoc.version);
+});
+window.addEventListener('online', () => { if (cloudHasPending()) cloudSaveNow(); });
+// Google gives one-hour sign-ins: renew inside a click, before it runs out
+document.addEventListener('click', () => {
+  if ((cloudDoc && cloudDoc.provider === 'gdrive') || cloudModalProvider === 'gdrive') cloudProvider('gdrive').keepAlive();
+}, true);
+
+async function cloudReauth(pid) {
+  const prov = cloudProvider(pid);
+  if (pid === 'dropbox') { prov.connect(); return; }   // leaves the page; changes stay pending on the device
+  try {
+    await prov.connect('');
+    if (cloudDoc && cloudDoc.provider === pid) cloudSaveNow();
+  } catch (e) {
+    if (e.code === 'notready') { prov.preload().catch(() => {}); showToast('רגע… לחץ שוב בעוד שנייה'); return; }
+    showMessage('החיבור לגוגל דרייב לא אושר', 'אפשר לנסות שוב. אם חלון של גוגל נחסם, אפשר לחלונות קופצים מהאתר הזה.');
+  }
+}
+
+/* Open a kit from the cloud. A pending change left on this device from earlier
+   (closed tab, no internet) is applied if the file did not change meanwhile. */
+async function openCloudDoc(pid, id, opts = {}) {
+  const prov = cloudProvider(pid);
+  let r;
+  try { r = await prov.read(id); }
+  catch (e) {
+    if (!opts.silent) showMessage('התיק לא נפתח', e.code === 'notfound' ? 'התיק לא נמצא בענן. ייתכן שנמחק או הועבר.'
+      : e.code === 'auth' ? `צריך להתחבר שוב ל${prov.label}.` : 'אין חיבור לענן כרגע. נסה שוב בעוד רגע.');
+    return false;
+  }
+  try { parseData(r.text, true); }
+  catch (e) { showMessage('הקובץ פגום', 'הקובץ שנבחר אינו תיק תקין של VitalCheck.'); return false; }
+  let text = r.text;
+  const p = getPending();
+  if (p && p.provider === pid && p.id === r.id && p.text !== r.text) {
+    if (String(p.baseVersion) === String(r.version)) text = p.text;
+    else {
+      const choice = await showDialog({
+        title: 'נשארו שינויים שלא נשלחו',
+        html: 'במכשיר הזה נשארו שינויים שעוד לא הגיעו לענן, אבל בינתיים התיק עודכן במכשיר אחר. באיזו גרסה להשתמש?',
+        stack: true,
+        buttons: [
+          { label: 'בגרסה שבענן', value: 'cloud', kind: 'primary' },
+          { label: 'בשינויים מהמכשיר הזה (ימחק את העדכון מהמכשיר האחר)', value: 'local', kind: 'danger' }
+        ]
+      });
+      if (choice === 'local') text = p.text;
+    }
+  }
+  if (text === r.text && p && p.id === r.id) setPending(null);
+  parseData(text);
+  fileHandle = null;
+  currentFileName = null;
+  cleanText = null;
+  saveFailed = false;
+  cloudDoc = { provider: pid, id: r.id, name: r.name, version: r.version, savedText: r.text };
+  forceNewBackup = true;
+  backupToLocalStorage();
+  showApp();
+  updateSaveAsLabel();
+  rememberCloudDoc();
+  if (text !== r.text) scheduleCloudSave(); else showCloudSaved(true);
+  return true;
+}
+
+function rememberCloudDoc() {
+  const entry = { provider: cloudDoc.provider, id: cloudDoc.id, name: cloudDoc.name, title: customTitleText, openedAt: Date.now() };
+  const list = (Cloud.store.get('recents') || []).filter(r => !(r.provider === entry.provider && r.id === entry.id));
+  Cloud.store.set('recents', [entry, ...list].slice(0, 8));
+  Cloud.store.set('last', { provider: entry.provider, id: entry.id });
+}
+// In the cloud, "save as a new file" downloads a copy instead (the kit keeps saving to the cloud)
+function updateSaveAsLabel() {
+  document.getElementById('saveAsBtn').textContent = cloudDoc ? '⬇️ הורדת עותק למכשיר' : '💾 שמירה כקובץ חדש';
+}
+function leaveCloudDoc() {
+  cloudDoc = null;
+  updateSaveAsLabel();
+  clearTimeout(cloudTimer);
+  Cloud.store.set('last', null);
+}
+
+const safeFileName = t => (t.replace(/[\\/:*?"<>|]/g, '').trim() || 'תיק') + '.json';
+
+async function cloudCreate(pid, title, text) {
+  const prov = cloudProvider(pid);
+  try {
+    const f = await prov.create(safeFileName(title), text);
+    return await openCloudDoc(pid, f.id);
+  } catch (e) {
+    showMessage('התיק לא נוצר', e.code === 'auth' ? `צריך להתחבר שוב ל${prov.label}.` : 'אין חיבור לענן כרגע. נסה שוב בעוד רגע.');
+    return false;
+  }
+}
+// The file disappeared from the cloud: keep the work as a new kit
+async function cloudSaveAsNew() {
+  const pid = cloudDoc.provider;
+  const text = serializeData();
+  setPending(null);
+  leaveCloudDoc();
+  await cloudCreate(pid, customTitleText, text);
+}
+
+/* ----- The "my kits in the cloud" window ----- */
+const cloudOverlay = document.getElementById('cloudModalOverlay');
+let cloudModalProvider = null;
+
+function renderCloudButtons() {
+  for (const pid of ['dropbox', 'gdrive']) {
+    const prov = cloudProvider(pid);
+    const btn = document.getElementById(pid === 'dropbox' ? 'cloudDropboxBtn' : 'cloudGdriveBtn');
+    btn.textContent = prov.isConnected() ? `📂 התיקים שלי ב${prov.label}` : `התחבר ל${prov.label}`;
+    btn.classList.toggle('connected', prov.isConnected());
+  }
+  const any = cloudProvider('dropbox').isConnected() || cloudProvider('gdrive').isConnected();
+  document.getElementById('cloudMenuBtn').style.display = any ? '' : 'none';
+}
+
+async function cloudButton(pid) {
+  const prov = cloudProvider(pid);
+  if (!prov.isConnected()) {
+    if (pid === 'dropbox') { prov.connect(); return; }
+    try { await prov.connect('consent'); }
+    catch (e) {
+      if (e.code === 'notready') { prov.preload().catch(() => {}); showToast('טוען את החיבור לגוגל… לחץ שוב בעוד שנייה'); return; }
+      showMessage('החיבור לגוגל דרייב לא הושלם', 'אפשר לנסות שוב. אם חלון של גוגל נחסם, אפשר לחלונות קופצים מהאתר הזה.');
+      return;
+    }
+    renderCloudButtons();
+  }
+  openCloudChooser(pid);
+}
+
+async function openCloudChooser(pid) {
+  const prov = cloudProvider(pid);
+  cloudModalProvider = pid;
+  document.getElementById('cloudTitle').textContent = `☁️ התיקים שלי ב${prov.label}`;
+  document.getElementById('cloudPickBtn').style.display = pid === 'gdrive' ? '' : 'none';
+  document.getElementById('cloudDisconnectBtn').textContent = `התנתק מ${prov.label}`;
+  document.getElementById('cloudNewName').value = '';
+  const list = document.getElementById('cloudList');
+  const st = document.getElementById('cloudListStatus');
+  list.innerHTML = '';
+  st.textContent = 'טוען…';
+  st.style.display = '';
+  cloudOverlay.style.display = 'flex';
+  let files;
+  try { files = await prov.list(); }
+  catch (e) {
+    st.textContent = e.code === 'auth' ? `צריך לאשר שוב את החיבור ל${prov.label}.` : 'אין חיבור לענן כרגע. נסה שוב בעוד רגע.';
+    if (e.code === 'auth') {
+      const b = document.createElement('button');
+      b.className = 'primary';
+      b.textContent = 'אשר את החיבור';
+      b.style.marginTop = '8px';
+      b.onclick = async () => { await cloudReauth(pid); if (pid === 'gdrive' && prov.cachedToken()) openCloudChooser(pid); };
+      st.append(document.createElement('br'), b);
+    }
+    return;
+  }
+  st.style.display = files.length ? 'none' : '';
+  st.textContent = 'עוד אין כאן תיקים. צור תיק חדש למטה' + (pid === 'gdrive' ? ', או בחר קובץ קיים מהדרייב.' : '.');
+  files.forEach(f => {
+    const row = document.createElement('div');
+    row.className = 'trash-row clickable';
+    row.setAttribute('role', 'button');
+    row.tabIndex = 0;
+    const tx = document.createElement('div');
+    tx.className = 'tx';
+    const t1 = document.createElement('div');
+    t1.textContent = '📋 ' + f.name.replace(/\.json$/i, '');
+    const t2 = document.createElement('div');
+    t2.className = 't2';
+    t2.textContent = f.modified ? `עודכן ${formatWhen(f.modified)}` : '';
+    tx.append(t1, t2);
+    row.append(tx);
+    const open = () => cloudOpenFromChooser(pid, f.id);
+    row.onclick = open;
+    row.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } };
+    list.appendChild(row);
+  });
+}
+
+// Before leaving the open kit: send what is waiting, and ask if it still can't be sent
+async function readyToSwitch() {
+  if (cloudDoc && cloudHasPending()) await cloudSaveNow();
+  if (cloudDoc && cloudHasPending()) {
+    const ok = await showDialog({
+      title: 'יש שינויים שעוד לא הגיעו לענן',
+      html: 'הם שמורים במכשיר הזה ויישלחו בפעם הבאה שתפתח את התיק הזה כאן. להמשיך?',
+      buttons: [{ label: 'ביטול', value: false }, { label: 'המשך', value: true, kind: 'primary' }]
+    });
+    return ok;
+  }
+  if (!cloudDoc && hasUnsavedData()) return confirmDiscardUnsaved();
+  return true;
+}
+
+async function cloudOpenFromChooser(pid, id) {
+  if (cloudDoc && cloudDoc.provider === pid && cloudDoc.id === id) { cloudOverlay.style.display = 'none'; return; }
+  if (!(await readyToSwitch())) return;
+  cloudOverlay.style.display = 'none';
+  await openCloudDoc(pid, id);
+}
+
+document.getElementById('cloudDropboxBtn').onclick = () => cloudButton('dropbox');
+document.getElementById('cloudGdriveBtn').onclick = () => cloudButton('gdrive');
+document.getElementById('cloudMenuBtn').onclick = () => {
+  const pid = cloudDoc ? cloudDoc.provider : cloudProvider('dropbox').isConnected() ? 'dropbox' : 'gdrive';
+  openCloudChooser(pid);
+};
+document.getElementById('cloudClose').onclick = () => { cloudOverlay.style.display = 'none'; cloudModalProvider = null; };
+closeOnBackdrop(cloudOverlay, () => { cloudOverlay.style.display = 'none'; cloudModalProvider = null; });
+
+document.getElementById('cloudCreateBtn').onclick = async () => {
+  const input = document.getElementById('cloudNewName');
+  const title = input.value.trim();
+  if (!title) { setFieldError(input, 'יש לכתוב שם לתיק', input.parentElement); input.focus(); return; }
+  if (!(await readyToSwitch())) return;
+  const pid = cloudModalProvider;
+  cloudOverlay.style.display = 'none';
+  const empty = JSON.stringify({ title, categories: ['כללי'], items: [] }, null, 2);
+  await cloudCreate(pid, title, empty);
+};
+document.getElementById('cloudNewName').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); document.getElementById('cloudCreateBtn').click(); }
+});
+
+document.getElementById('cloudPickBtn').onclick = async () => {
+  const prov = cloudProvider('gdrive');
+  let f;
+  try { f = await prov.pick(); }
+  catch (e) {
+    if (e.code === 'auth') { await cloudReauth('gdrive'); return; }
+    showMessage('חלון הבחירה של גוגל לא נפתח', 'נסה שוב בעוד רגע.');
+    return;
+  }
+  if (f) await cloudOpenFromChooser('gdrive', f.id);
+};
+
+// A file from the device (e.g. the kit used until now) becomes a kit in the cloud
+document.getElementById('cloudImportBtn').onclick = () => {
+  const pid = cloudModalProvider;
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.onchange = async () => {
+    const file = input.files[0];
+    if (!file) return;
+    const text = await file.text();
+    try { parseData(text, true); }
+    catch (e) { showMessage('הקובץ פגום', 'הקובץ שנבחר אינו תיק תקין של VitalCheck.'); return; }
+    if (!(await readyToSwitch())) return;
+    cloudOverlay.style.display = 'none';
+    let title = file.name.replace(/\.json$/i, '');
+    try { const t = JSON.parse(text).title; if (typeof t === 'string' && t.trim()) title = t.trim(); } catch (e) {}
+    if (await cloudCreate(pid, title, text)) showToast(`הקובץ "${file.name}" הועבר ל${cloudProvider(pid).label}`);
+  };
+  input.click();
+};
+
+document.getElementById('cloudDisconnectBtn').onclick = async () => {
+  const pid = cloudModalProvider;
+  const prov = cloudProvider(pid);
+  const ok = await showDialog({
+    title: `התנתקות מ${prov.label}`,
+    html: `התיקים עצמם נשארים ב${escapeHtml(prov.label)}. רק המכשיר הזה יפסיק לגשת אליהם, עד שתתחבר שוב.`,
+    buttons: [{ label: 'ביטול', value: false }, { label: 'התנתק', value: true, kind: 'danger' }]
+  });
+  if (!ok) return;
+  if (cloudDoc && cloudDoc.provider === pid && cloudHasPending()) await cloudSaveNow();
+  await prov.disconnect();
+  Cloud.store.set('recents', (Cloud.store.get('recents') || []).filter(r => r.provider !== pid));
+  cloudOverlay.style.display = 'none';
+  if (cloudDoc && cloudDoc.provider === pid) { leaveCloudDoc(); allowUnload = true; location.reload(); return; }
+  renderCloudButtons();
+};
+
+// On load: finish a Dropbox sign-in, or reopen the last cloud kit. True = a kit is open.
+async function cloudStartup() {
+  renderCloudButtons();
+  try {
+    if (await cloudProvider('dropbox').finishRedirect()) {
+      renderCloudButtons();
+      const last = Cloud.store.get('last');
+      if (last && last.provider === 'dropbox' && await openCloudDoc('dropbox', last.id, { silent: true })) return true;
+      openCloudChooser('dropbox');
+      return false;
+    }
+  } catch (e) {
+    showMessage('ההתחברות לדרופבוקס לא הושלמה', 'אפשר לנסות שוב בכפתור "התחבר לדרופבוקס".');
+  }
+  const gd = cloudProvider('gdrive');
+  if (gd.isConnected()) gd.preload().catch(() => {});
+  const last = Cloud.store.get('last');
+  if (!last || !cloudProvider(last.provider) || !cloudProvider(last.provider).isConnected()) return false;
+  if (last.provider === 'gdrive' && !gd.cachedToken()) {
+    // Google needs a click to renew the sign-in: one button to continue
+    const entry = (Cloud.store.get('recents') || []).find(r => r.provider === 'gdrive' && r.id === last.id);
+    const box = document.getElementById('cloudResume');
+    const b = document.createElement('button');
+    b.className = 'primary';
+    b.textContent = `📋 המשך לתיק "${(entry && entry.title) || 'האחרון'}" (גוגל דרייב)`;
+    b.onclick = async () => {
+      try { await gd.connect(''); }
+      catch (e) { if (e.code === 'notready') { gd.preload().catch(() => {}); showToast('רגע… לחץ שוב בעוד שנייה'); } return; }
+      await openCloudDoc('gdrive', last.id);
+    };
+    box.append(b);
+    box.style.display = '';
+    return false;
+  }
+  return await openCloudDoc(last.provider, last.id, { silent: true });
+}
+
 /* ---------- Startup ---------- */
 (async () => {
   // Show restore button if backup exists
@@ -3042,6 +3594,7 @@ closeOnBackdrop(backupsModalOverlay, () => { backupsModalOverlay.style.display =
     restoreBtn.style.display = 'block';
   }
 
+  if (await cloudStartup()) return;
   if (!hasFS) return; // stay on welcome screen
 
   renderRecents();
