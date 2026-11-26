@@ -431,7 +431,7 @@
   .cloud-rec { display: block; font-weight: 400; font-size: 13px; color: var(--muted); margin-top: 2px; }
   .cloud-btns { display: flex; gap: 10px; flex-wrap: wrap; }
   .cloud-btn { flex: 1 1 180px; min-height: 48px; font-size: 15px; font-weight: 600; background: #fff; border: 1.5px solid var(--navy); color: var(--navy); border-radius: 10px; cursor: pointer; }
-  .cloud-btn.connected { background: var(--navy); color: #fff; }
+  .cloud-btn.connected { border-color: var(--teal-dark); color: #0b5e46; }
   .cloud-note { font-size: 12.5px; color: var(--muted); margin-top: 10px; }
   .cloud-resume { margin-top: 10px; }
   .cloud-resume button { width: 100%; }
@@ -3458,8 +3458,10 @@ function renderCloudButtons() {
   for (const pid of ['dropbox', 'gdrive']) {
     const prov = cloudProvider(pid);
     const btn = document.getElementById(pid === 'dropbox' ? 'cloudDropboxBtn' : 'cloudGdriveBtn');
-    btn.textContent = prov.isConnected() ? `📂 התיקים שלי ב${prov.label}` : `התחבר ל${prov.label}`;
+    // Same look for both; a connected service says so in words
+    btn.textContent = prov.isConnected() ? `📂 התיקים שלי ב${prov.label} ✓` : `התחבר ל${prov.label}`;
     btn.classList.toggle('connected', prov.isConnected());
+    btn.title = prov.isConnected() ? `מחובר ל${prov.label}` : '';
   }
   const any = cloudProvider('dropbox').isConnected() || cloudProvider('gdrive').isConnected();
   document.getElementById('cloudMenuBtn').style.display = any ? '' : 'none';
