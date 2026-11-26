@@ -2567,6 +2567,21 @@ function getBackups() {
 // starts a new snapshot instead of updating an earlier one.
 let forceNewBackup = false;
 
+// A version that is about to be replaced is kept as a separate entry in "שחזור מגיבוי"
+function saveTextAsBackup(text, label) {
+  try {
+    const d = JSON.parse(text);
+    const list = getBackups();
+    list.unshift({ time: new Date().toISOString(), title: `${(d && d.title) || 'התיק שלי'} — ${label}`, file: null,
+      count: Array.isArray(d) ? d.length : ((d && d.items) || []).length, data: text });
+    let trimmed = list.slice(0, MAX_BACKUPS);
+    while (trimmed.length) {
+      try { localStorage.setItem(BACKUPS_KEY, JSON.stringify(trimmed)); break; }
+      catch (e) { trimmed = trimmed.slice(0, -1); }
+    }
+  } catch (e) {}
+}
+
 function backupToLocalStorage() {
   if (!items.length) return;
   try {
@@ -3353,6 +3368,7 @@ async function openCloudDoc(pid, id, opts = {}) {
         ]
       });
       if (choice === 'local') text = p.text;
+      else saveTextAsBackup(p.text, 'השינויים מהמכשיר הזה שלא נשלחו');   // kept in "שחזור מגיבוי"
     }
   }
   if (text === r.text && p) setPending(pid, r.id, null);
@@ -3402,11 +3418,19 @@ async function cloudCreate(pid, title, text) {
 }
 // The file disappeared from the cloud: keep the work as a new kit
 async function cloudSaveAsNew() {
-  const pid = cloudDoc.provider;
+  const old = cloudDoc;
   const text = serializeData();
-  setPending(cloudDoc.provider, cloudDoc.id, null);
+  const prov = cloudProvider(old.provider);
+  let f;
+  try { f = await prov.create(safeFileName(customTitleText), text); }
+  catch (e) {
+    // nothing is cleared: the changes stay waiting on this device, the button stays
+    showMessage('התיק לא נוצר', 'אין חיבור לענן כרגע. השינויים שמורים במכשיר הזה. נסה שוב בעוד רגע.');
+    return;
+  }
+  setPending(old.provider, old.id, null);   // only now: the work is safely in the new file
   leaveCloudDoc();
-  await cloudCreate(pid, customTitleText, text);
+  await openCloudDoc(old.provider, f.id);
 }
 
 /* ----- The "my kits in the cloud" window ----- */
