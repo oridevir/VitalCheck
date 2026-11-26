@@ -1040,7 +1040,7 @@
         <button type="button" class="cloud-btn" id="cloudGdriveBtn"></button>
       </div>
       <div class="cloud-resume" id="cloudResume" style="display:none;"></div>
-      <div class="cloud-note">מתחברים פעם אחת בכל מכשיר. האתר רואה רק את התיקים שלו, ולא שום קובץ אחר שלך.</div>
+      <div class="cloud-note">מתחברים פעם אחת בכל מכשיר. האתר רואה רק את התיקים שלו, ולא שום קובץ אחר שלך. <a href="privacy.html">מדיניות פרטיות</a></div>
     </div>
     <div class="recent-sep">או עבודה עם קובץ במכשיר</div>
 
@@ -1085,6 +1085,7 @@
   פותח על ידי <strong>ד"ר אורי דביר</strong> · להארות והערות:
   <a href="mailto:VitalCheck@DrDevir.com">VitalCheck@DrDevir.com</a>
   · <a href="https://drdevir.com/accessibility-statement.html" target="_blank" rel="noopener" class="a11y-statement">הצהרת נגישות<span class="a11y-sr"> (נפתח בחלון חדש)</span></a>
+  · <a href="privacy.html" class="a11y-statement">מדיניות פרטיות</a>
 </div>
 
 <!-- Item modal -->
@@ -1234,7 +1235,7 @@
     </div>
     <div class="about-body">
       <p><bdi dir="ltr">VitalCheck</bdi> היא אפליקציה למעקב אחר תאריכי תוקף ומלאי של ציוד רפואי — בתיק כונן, באמבולנס או במרפאה. היא מסמנת בצבעים מה כבר פג ומה עומד לפוג, כדי שהציוד יהיה תקין ברגע שצריך אותו. ומכאן גם הסמל שלה: קו דופק וסימן וי של בדיקה.</p>
-      <p>הנתונים נשמרים אצלך: בדרופבוקס או בגוגל דרייב שלך (מומלץ — אותו תיק בטלפון ובמחשב), או בקובץ במכשיר. הם לא עוברים דרך שום שרת שלנו. בענן האתר רואה רק את התיקים שלו, ולא שום קובץ אחר שלך.</p>
+      <p>הנתונים נשמרים אצלך: בדרופבוקס או בגוגל דרייב שלך (מומלץ — אותו תיק בטלפון ובמחשב), או בקובץ במכשיר. הם לא עוברים דרך שום שרת שלנו. בענן האתר רואה רק את התיקים שלו, ולא שום קובץ אחר שלך. <a href="privacy.html">מדיניות הפרטיות</a></p>
       <hr>
       <h3>איך מתחילים</h3>
       <ol>
@@ -3319,6 +3320,8 @@ async function cloudCheckRemote() {
     if (doc !== cloudDoc || String(v) === String(doc.version) || cloudHasPending()) return;
     const latest = await prov.read(doc.id);
     if (doc !== cloudDoc || cloudHasPending()) return;
+    // Same content (Drive moves its version number on by itself): just note the new number, quietly
+    if (latest.text === doc.savedText) { doc.version = latest.version; return; }
     parseData(latest.text, true);
     if (modalOverlay.style.display !== 'none') return;   // don't change the list under an open item window
     parseData(latest.text);
