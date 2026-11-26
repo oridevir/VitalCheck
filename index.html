@@ -3129,6 +3129,8 @@ let cloudConflictOpen = false;
 const CLOUD_SAVE_DELAY = 2000;
 const cloudProvider = id => Cloud.providers[id];
 const docName = () => cloudDoc ? cloudDoc.name : fileHandle ? fileHandle.name : currentFileName;
+// In messages a cloud kit is called by its name, without the ".json" of the file
+const kitLabel = name => String(name || '').replace(/\.json$/i, '');
 /* Changes not yet confirmed by the cloud, kept per kit ("provider:id") — so unsent changes
    of one kit survive switching to another kit. Also kept in memory, in case the browser's
    storage is full or blocked (private mode). */
@@ -3169,8 +3171,8 @@ function cloudStatus(kind, text, button) {
 function showCloudSaved(justOpened) {
   const label = cloudProvider(cloudDoc.provider).label;
   cloudStatus('ok', justOpened
-    ? `☁️ מחובר ל${label}: "${cloudDoc.name}" — כל שינוי נשמר בענן אוטומטית`
-    : `✅ נשמר ב${label} בשעה ${timeNow()} — "${cloudDoc.name}"`);
+    ? `☁️ מחובר ל${label}: "${kitLabel(cloudDoc.name)}" — כל שינוי נשמר בענן אוטומטית`
+    : `✅ נשמר ב${label} בשעה ${timeNow()} — "${kitLabel(cloudDoc.name)}"`);
 }
 
 // Every change: keep it on the device right away, send it to the cloud a moment later
@@ -3230,7 +3232,7 @@ async function doCloudSave() {
       return;
     }
     if (e.code === 'notfound') {
-      cloudStatus('error', `⚠️ הקובץ "${doc.name}" לא נמצא בענן (אולי נמחק או הועבר). השינויים שמורים במכשיר הזה.`,
+      cloudStatus('error', `⚠️ התיק "${kitLabel(doc.name)}" לא נמצא בענן (אולי נמחק או הועבר). השינויים שמורים במכשיר הזה.`,
         { label: '💾 שמור אותם כתיק חדש בענן', onclick: () => cloudSaveAsNew() });
       return;
     }
@@ -3251,7 +3253,7 @@ async function handleCloudConflict(doc, myText) {
   catch (e) {
     // Dropbox answers "conflict" also when the file was deleted: reading it then says "not found"
     if (e.code === 'notfound') {
-      cloudStatus('error', `⚠️ הקובץ "${doc.name}" לא נמצא בענן (אולי נמחק או הועבר). השינויים שמורים במכשיר הזה.`,
+      cloudStatus('error', `⚠️ התיק "${kitLabel(doc.name)}" לא נמצא בענן (אולי נמחק או הועבר). השינויים שמורים במכשיר הזה.`,
         { label: '💾 שמור אותם כתיק חדש בענן', onclick: () => cloudSaveAsNew() });
       return;
     }
@@ -3269,7 +3271,7 @@ async function handleCloudConflict(doc, myText) {
   cloudConflictOpen = true;
   const choice = await showDialog({
     title: '⚠️ התיק השתנה ממכשיר אחר',
-    html: `מאז שהתיק <strong>"${escapeHtml(doc.name)}"</strong> נפתח כאן, הוא עודכן במכשיר אחר.<br>אם תשמור עכשיו, העדכון ההוא יימחק.`,
+    html: `מאז שהתיק <strong>"${escapeHtml(kitLabel(doc.name))}"</strong> נפתח כאן, הוא עודכן במכשיר אחר.<br>אם תשמור עכשיו, העדכון ההוא יימחק.`,
     stack: true,
     buttons: [
       { label: '🔄 טען את הגרסה העדכנית', value: 'reload', kind: 'primary' },
