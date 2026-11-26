@@ -3207,7 +3207,17 @@ async function handleCloudConflict(doc, myText) {
   const prov = cloudProvider(doc.provider);
   let latest;
   try { latest = await prov.read(doc.id); }
-  catch (e) { cloudStatus('error', '⚠️ השמירה בענן נכשלה. השינויים שמורים במכשיר הזה.', { label: '🔄 נסה שוב', onclick: () => cloudSaveNow() }); return; }
+  catch (e) {
+    // Dropbox answers "conflict" also when the file was deleted: reading it then says "not found"
+    if (e.code === 'notfound') {
+      cloudStatus('error', `⚠️ הקובץ "${doc.name}" לא נמצא בענן (אולי נמחק או הועבר). השינויים שמורים במכשיר הזה.`,
+        { label: '💾 שמור אותם כתיק חדש בענן', onclick: () => cloudSaveAsNew() });
+      return;
+    }
+    cloudStatus('error', '⚠️ השמירה בענן נכשלה. השינויים שמורים במכשיר הזה.', { label: '🔄 נסה שוב', onclick: () => cloudSaveNow() });
+    scheduleCloudRetry();
+    return;
+  }
   if (doc !== cloudDoc) return;
   // Same content (e.g. our own save that left while the page was closing): nothing to choose
   if (latest.text === myText || latest.text === doc.savedText) {
