@@ -3146,7 +3146,9 @@ function showCloudSaved(justOpened) {
 // Every change: keep it on the device right away, send it to the cloud a moment later
 function scheduleCloudSave() {
   const text = serializeData();
-  setPending({ provider: cloudDoc.provider, id: cloudDoc.id, baseVersion: cloudDoc.version, text, at: Date.now() });
+  // baseText: the cloud content these changes were made on (Drive's version number also
+  // changes by itself on Google's side, so the content is what tells if someone else changed it)
+  setPending({ provider: cloudDoc.provider, id: cloudDoc.id, baseVersion: cloudDoc.version, baseText: cloudDoc.savedText, text, at: Date.now() });
   if (!/error/.test(fileStatus.className)) cloudStatus('wait', '⏳ שומר בענן…');
   clearTimeout(cloudTimer);
   cloudTimer = setTimeout(cloudSaveNow, CLOUD_SAVE_DELAY);
@@ -3315,7 +3317,7 @@ async function openCloudDoc(pid, id, opts = {}) {
   let text = r.text;
   const p = getPending();
   if (p && p.provider === pid && p.id === r.id && p.text !== r.text) {
-    if (String(p.baseVersion) === String(r.version)) text = p.text;
+    if (r.text === p.baseText || String(p.baseVersion) === String(r.version)) text = p.text;
     else {
       const choice = await showDialog({
         title: 'נשארו שינויים שלא נשלחו',
