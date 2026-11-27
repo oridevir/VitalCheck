@@ -1141,6 +1141,7 @@
     <div class="cloud-more">
       <button type="button" id="cloudPickBtn" style="display:none;">🔎 בחר קובץ קיים מהדרייב</button>
       <button type="button" id="cloudImportBtn">📤 העבר לענן קובץ קיים מהמכשיר</button>
+      <button type="button" id="cloudOtherBtn" style="display:none;"></button>
     </div>
     <div class="modal-actions">
       <button type="button" id="cloudDisconnectBtn" class="danger-btn">התנתק</button>
@@ -3485,9 +3486,17 @@ async function cloudButton(pid) {
   openCloudChooser(pid);
 }
 
+let cloudChooserSeq = 0;
 async function openCloudChooser(pid) {
   const prov = cloudProvider(pid);
+  const seq = ++cloudChooserSeq;
   cloudModalProvider = pid;
+  // Connected to the other cloud too: a link that switches the list to it
+  const otherPid = pid === 'dropbox' ? 'gdrive' : 'dropbox';
+  const otherBtn = document.getElementById('cloudOtherBtn');
+  otherBtn.style.display = cloudProvider(otherPid).isConnected() ? '' : 'none';
+  otherBtn.textContent = `📂 התיקים שלי ב${cloudProvider(otherPid).label}`;
+  otherBtn.onclick = () => openCloudChooser(otherPid);
   document.getElementById('cloudTitle').textContent = `☁️ התיקים שלי ב${prov.label}`;
   document.getElementById('cloudPickBtn').style.display = pid === 'gdrive' ? '' : 'none';
   document.getElementById('cloudDisconnectBtn').textContent = `התנתק מ${prov.label}`;
@@ -3503,6 +3512,7 @@ async function openCloudChooser(pid) {
   let files;
   try { files = await prov.list(); }
   catch (e) {
+    if (seq !== cloudChooserSeq) return; // switched to the other cloud meanwhile
     st.textContent = e.code === 'auth' ? `צריך לאשר שוב את החיבור ל${prov.label}.` : 'אין חיבור לענן כרגע. נסה שוב בעוד רגע.';
     if (e.code === 'auth') {
       const b = document.createElement('button');
@@ -3514,6 +3524,7 @@ async function openCloudChooser(pid) {
     }
     return;
   }
+  if (seq !== cloudChooserSeq) return; // switched to the other cloud meanwhile
   st.style.display = files.length ? 'none' : '';
   st.textContent = 'עוד אין כאן תיקים. צור תיק חדש למטה' + (pid === 'gdrive' ? ', או בחר קובץ קיים מהדרייב.' : '.');
   files.forEach(f => {
